@@ -1,0 +1,21 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+final class Taxon extends Model
+{
+    protected $guarded = [];
+
+    protected function casts(): array
+    {
+        return ['classification' => 'array'];
+    }
+
+    public function mappings(): HasMany
+    {
+        return $this->hasMany(TaxonSourceMapping::class);
+    }
+}

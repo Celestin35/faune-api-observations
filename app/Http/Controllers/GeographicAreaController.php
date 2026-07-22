@@ -1,0 +1,14 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\GeographicArea;
+use Illuminate\Http\JsonResponse;
+
+final class GeographicAreaController
+{
+    public function __invoke(): JsonResponse
+    {
+        return response()->json(['data' => GeographicArea::orderBy('name')->get()]);
+    }
+}

@@ -1,0 +1,12 @@
+/.env
+/.phpunit.cache
+/.phpunit.result.cache
+/vendor
+/storage/*.key
+/storage/logs/*.log
+/bootstrap/cache/*.php
+/.idea
+/.vscode
+/front/node_modules
+/front/.nuxt
+/front/.output

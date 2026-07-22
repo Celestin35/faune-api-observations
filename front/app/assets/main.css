@@ -1,0 +1,32 @@
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #17211b; background: #f4f5ef; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: inherit; }
+.topbar { background: #173f35; color: #fff; display: flex; align-items: center; gap: 2rem; padding: 1rem 2rem; }
+.brand { font-weight: 800; font-size: 1.2rem; text-decoration: none; }
+nav { display: flex; gap: 1.2rem; flex-wrap: wrap; }
+nav a { color: #d7ebe1; text-decoration: none; }
+nav a.router-link-active { color: #fff; text-decoration: underline; text-underline-offset: .35rem; }
+main { width: min(1180px, calc(100% - 2rem)); margin: 2rem auto; }
+h1 { margin-top: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.card { background: #fff; border: 1px solid #dde3dc; border-radius: 12px; padding: 1rem; box-shadow: 0 3px 12px #173f3510; }
+.stat { font-size: 2rem; font-weight: 800; color: #146b51; }
+label { display: grid; gap: .35rem; font-size: .9rem; }
+input, select, button, textarea { font: inherit; padding: .65rem .75rem; border: 1px solid #b8c3bb; border-radius: 7px; }
+button { cursor: pointer; border: 0; color: #fff; background: #146b51; font-weight: 650; }
+button.secondary { color: #173f35; background: #e4ece7; }
+button.danger { background: #a13f36; }
+button:disabled { opacity: .55; cursor: wait; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: end; }
+.actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+.badges { display: flex; gap: .35rem; flex-wrap: wrap; }
+.badge { background: #e1eee8; color: #155641; padding: .2rem .5rem; border-radius: 999px; font-size: .78rem; }
+.status-failed { color: #a13f36; }.status-completed { color: #146b51; }.status-partial { color: #9a6200; }
+.muted { color: #607067; }.error { color: #a13f36; white-space: pre-wrap; }.success { color: #146b51; }
+table { width: 100%; border-collapse: collapse; background: #fff; }
+th, td { padding: .7rem; text-align: left; border-bottom: 1px solid #e2e6e2; vertical-align: top; }
+.map { width: 100%; height: 68vh; min-height: 440px; border-radius: 12px; overflow: hidden; }
+.taxon-results { position: absolute; z-index: 10; background: white; border: 1px solid #ccc; max-height: 250px; overflow: auto; width: 100%; }
+.taxon-results button { display: block; width: 100%; color: #17211b; background: #fff; text-align: left; border-radius: 0; }
+@media (max-width: 700px) { .topbar { align-items: flex-start; flex-direction: column; gap: .7rem; padding: 1rem; } main { margin-top: 1rem; } }

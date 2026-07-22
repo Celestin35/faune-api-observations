@@ -1,0 +1,7 @@
+<script setup lang="ts">
+const api=useApi(); const rules=ref<any[]>([]), message=ref('')
+async function load(){rules.value=(await api<any>('/monitoring')).data} await load()
+async function toggle(rule:any){await api(`/monitoring/${rule.id}`,{method:'PATCH',body:{is_active:!rule.is_active}});await load()}
+async function sync(rule:any){await api(`/monitoring/${rule.id}/sync`,{method:'POST'});message.value=`Synchronisation ${rule.name} planifiée.`;await load()}
+</script>
+<template><section><div style="display:flex;justify-content:space-between;gap:1rem"><div><h1>Surveillances</h1><p class="muted">Fréquence minimale : iNaturalist 5 min, GBIF 30 min.</p></div><NuxtLink to="/surveillances/nouvelle"><button>Nouvelle surveillance</button></NuxtLink></div><p class="success">{{ message }}</p><div class="grid"><article v-for="rule in rules" :key="rule.id" class="card"><h2>{{ rule.name }}</h2><p><i>{{ rule.taxon?.scientific_name || 'Animalia' }}</i></p><div class="badges"><span v-for="s in rule.sources" :key="s" class="badge">{{ s }}</span></div><p>Toutes les {{ rule.frequency_minutes }} min · fenêtre {{ rule.window_minutes }} min</p><p :class="rule.is_active?'success':'muted'">{{ rule.is_active?'Active':'Désactivée' }}</p><small>Prochaine : {{ rule.next_sync_at || 'à planifier' }}</small><div class="actions"><button @click="sync(rule)">Synchroniser</button><button class="secondary" @click="toggle(rule)">{{ rule.is_active?'Désactiver':'Activer' }}</button></div></article></div></section></template>

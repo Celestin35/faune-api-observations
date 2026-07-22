@@ -1,0 +1,85 @@
+services:
+  app:
+    build: .
+    image: observations-api-app:local
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: local
+      APP_KEY: ${APP_KEY:-base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=}
+      DB_HOST: postgres
+    volumes:
+      - .:/app
+      - vendor:/app/vendor
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  queue:
+    image: observations-api-app:local
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: local
+      APP_KEY: ${APP_KEY:-base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=}
+      DB_HOST: postgres
+      QUEUE_CONNECTION: database
+    command: ["php", "artisan", "queue:work", "--sleep=2", "--tries=2", "--timeout=900"]
+    volumes:
+      - .:/app
+      - vendor:/app/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  scheduler:
+    image: observations-api-app:local
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: local
+      APP_KEY: ${APP_KEY:-base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=}
+      DB_HOST: postgres
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - .:/app
+      - vendor:/app/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  front:
+    image: node:22-alpine
+    working_dir: /front
+    environment:
+      NUXT_API_BASE: http://app:8000/api
+    command: ["sh", "-c", "npm install && npm run dev"]
+    volumes:
+      - ./front:/front
+      - front_node_modules:/front/node_modules
+    ports:
+      - "3000:3000"
+
+  postgres:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_DB: observations
+      POSTGRES_USER: observations
+      POSTGRES_PASSWORD: observations
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U observations -d observations"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+volumes:
+  postgres:
+  vendor:
+  front_node_modules:

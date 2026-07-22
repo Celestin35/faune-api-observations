@@ -1,0 +1,34 @@
+{
+  "total_results": 964,
+  "page": 1,
+  "per_page": 1,
+  "results": [
+    {
+      "id": 334329012,
+      "uuid": "00000000-0000-4000-8000-000000000001",
+      "quality_grade": "research",
+      "time_observed_at": "2026-01-11T09:43:39+01:00",
+      "created_at": "2026-01-11T10:00:00+01:00",
+      "updated_at": "2026-03-03T12:59:03+01:00",
+      "public_positional_accuracy": 4,
+      "license_code": "cc-by-nc",
+      "uri": "https://www.inaturalist.org/observations/334329012",
+      "geojson": {"type": "Point", "coordinates": [3.309553, 43.831119]},
+      "user": {"login": "observer-redacted"},
+      "taxon": {
+        "id": 14840,
+        "name": "Tichodroma muraria",
+        "rank": "species",
+        "preferred_common_name": "Wallcreeper",
+        "ancestors": [
+          {"rank": "kingdom", "name": "Animalia"},
+          {"rank": "class", "name": "Aves"},
+          {"rank": "family", "name": "Tichodromidae"}
+        ]
+      },
+      "photos": [
+        {"url": "https://example.test/square.jpg", "license_code": "cc-by-nc", "attribution": "observer-redacted"}
+      ]
+    }
+  ]
+}

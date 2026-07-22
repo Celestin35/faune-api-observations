@@ -1,0 +1,8 @@
+{
+  "tested_at": "2026-07-20",
+  "legacy_endpoint_status": 302,
+  "legacy_endpoint_location": "https://inpn.mnhn.fr",
+  "taxref_web_search_status": 200,
+  "taxref_web_search_problem": "scientificNames, page and size were ignored; response began with an unrelated taxon",
+  "fuzzy_match_status": 404
+}

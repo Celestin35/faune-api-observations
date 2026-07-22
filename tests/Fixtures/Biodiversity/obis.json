@@ -1,0 +1,28 @@
+{
+  "total": 19615,
+  "results": [
+    {
+      "id": "00007235-5211-4633-98bb-0f8f9ad53e0f",
+      "occurrenceID": "1406_14803",
+      "dataset_id": "553e813b-993b-46f4-b42e-d3a5bf064572",
+      "datasetName": "French stranding network (title shortened)",
+      "scientificName": "Delphinus delphis",
+      "vernacularName": "Short-beaked common dolphin",
+      "aphiaID": 137094,
+      "kingdom": "Animalia",
+      "phylum": "Chordata",
+      "class": "Mammalia",
+      "order": "Cetartiodactyla",
+      "family": "Delphinidae",
+      "genus": "Delphinus",
+      "species": "Delphinus delphis",
+      "eventDate": "2000-02-19",
+      "modified": "2024-01-18 14:44:43",
+      "decimalLatitude": 49.18,
+      "decimalLongitude": -1.601,
+      "coordinateUncertaintyInMeters": 1.11,
+      "occurrenceStatus": "present",
+      "license": "http://creativecommons.org/licenses/by-nc/4.0/"
+    }
+  ]
+}

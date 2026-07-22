@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -eu
+
+docker compose up -d postgres app queue scheduler
+docker compose ps

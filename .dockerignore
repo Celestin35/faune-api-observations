@@ -1,0 +1,9 @@
+.env
+.git
+.idea
+.phpunit.cache
+.vscode
+bootstrap/cache/*.php
+front
+storage/logs/*.log
+vendor

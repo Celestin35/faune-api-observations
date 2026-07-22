@@ -1,0 +1,42 @@
+{
+  "offset": 0,
+  "limit": 1,
+  "endOfRecords": false,
+  "count": 22936,
+  "results": [
+    {
+      "key": 6130251258,
+      "datasetKey": "50c9509d-22c7-4a22-a47d-8c48425ef4a7",
+      "occurrenceID": "https://www.inaturalist.org/observations/334329012",
+      "taxonKey": 2484918,
+      "scientificName": "Tichodroma muraria (Linnaeus, 1766)",
+      "vernacularName": "Tichodrome échelette",
+      "kingdom": "Animalia",
+      "phylum": "Chordata",
+      "class": "Aves",
+      "order": "Passeriformes",
+      "family": "Tichodromidae",
+      "genus": "Tichodroma",
+      "species": "Tichodroma muraria",
+      "eventDate": "2026-01-11T09:43:39",
+      "modified": "2026-03-03T11:59:03.000+00:00",
+      "lastCrawled": "2026-07-14T11:30:32.113+00:00",
+      "decimalLatitude": 43.831119,
+      "decimalLongitude": 3.309553,
+      "coordinateUncertaintyInMeters": 4.0,
+      "occurrenceStatus": "PRESENT",
+      "recordedBy": "observer-redacted",
+      "license": "http://creativecommons.org/licenses/by-nc/4.0/legalcode",
+      "references": "https://www.inaturalist.org/observations/334329012",
+      "identifiers": [{"identifier": "334329012"}],
+      "media": [
+        {
+          "type": "StillImage",
+          "identifier": "https://example.test/photo.jpg",
+          "references": "https://www.inaturalist.org/photos/607117751",
+          "license": "http://creativecommons.org/licenses/by-nc/4.0/"
+        }
+      ]
+    }
+  ]
+}

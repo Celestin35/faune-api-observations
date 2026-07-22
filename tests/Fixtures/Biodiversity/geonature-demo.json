@@ -1,0 +1,10 @@
+{
+  "tested_at": "2026-07-20",
+  "base_url": "https://demo.geonature.fr/geonature",
+  "attempted_paths": [
+    "/api/gn_synthese/synthese?limit=1",
+    "/api/gn_synthese/observations?limit=1",
+    "/api/gn_commons/t_modules"
+  ],
+  "http_status": 404
+}

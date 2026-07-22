@@ -1,0 +1,7 @@
+{
+  "dateFrom": "2026-06-22",
+  "dateTo": "2026-07-22",
+  "departments": ["09"],
+  "pagePauseMs": 1500,
+  "headless": true
+}

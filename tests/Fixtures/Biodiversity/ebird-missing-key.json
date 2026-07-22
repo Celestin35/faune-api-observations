@@ -1,0 +1,5 @@
+{
+  "http_status": 403,
+  "body": null,
+  "note": "Live request without x-ebirdapitoken on 2026-07-20; no observation downloaded."
+}
