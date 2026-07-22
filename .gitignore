@@ -4,6 +4,11 @@
 /vendor
 /storage/*.key
 /storage/logs/*.log
+/storage/framework/testing/
+/storage/app/backups/
+/storage/app/taxref/source/
+/storage/app/taxref/extracted/
+/storage/app/taxref/reports/
 /bootstrap/cache/*.php
 /.idea
 /.vscode
