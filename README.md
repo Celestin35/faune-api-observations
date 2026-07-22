@@ -16,7 +16,7 @@ Après la première installation, le backend de développement se lance avec :
 
 ```bash
 cp .env.example .env
-# Renseigner APP_KEY et FAUNE_FRANCE_TOKEN dans .env
+# Renseigner APP_KEY, FAUNE_FRANCE_TOKEN et FAUNE_FRANCE_BOT_TOKEN dans .env
 docker compose build app
 docker compose up -d postgres
 docker compose run --rm app php artisan migrate --seed
@@ -76,7 +76,7 @@ php artisan biodiversity:count --source=gbif --taxon="Tichodroma muraria" --from
 ## Premier parcours
 
 1. Ouvrir `/exploration`, saisir `Tichodroma muraria` et choisir le résultat.
-2. Choisir une période, un point/rayon ou plusieurs des dix départements, puis GBIF/iNaturalist.
+2. Choisir une période, un point/rayon ou plusieurs des 101 départements, puis GBIF/iNaturalist.
 3. Cliquer sur **Estimer**. Les totaux local, GBIF, iNaturalist et l’approximation du recouvrement s’affichent.
 4. Confirmer le petit import. Suivre sa progression dans `/imports`, puis ouvrir `/carte`.
 5. Dans `/surveillances/nouvelle`, créer une règle. La synchronisation manuelle est disponible sur `/surveillances`; le scheduler traite ensuite les échéances.
@@ -91,7 +91,7 @@ curl -X POST http://localhost:8000/api/collections -H 'Content-Type: application
 }'
 ```
 
-## Entrée Faune-France
+## Entrée et worker Faune-France
 
 Il n’existe aucune connexion sortante vers Faune-France. Un outil externe authentifié peut envoyer un objet ou un tableau. L’identifiant source rend l’opération idempotente.
 
@@ -103,6 +103,19 @@ curl -X POST http://localhost:8000/api/biodiversity/faune-france/occurrences \
 ```
 
 La réponse `202` indique les nombres `created`, `updated`, `unchanged` et `failed`.
+
+Le bot Playwright dans `bot/` peut également récupérer les tâches de la table `external_fetch_jobs`, interroger Faune-France avec son profil persistant puis importer les réponses brutes par lots idempotents :
+
+```bash
+cd bot
+cp .env.example .env
+npm install
+npm run worker
+```
+
+`FAUNE_FRANCE_BOT_TOKEN` doit avoir exactement la même valeur dans le `.env` Laravel et dans `bot/.env`. Les commandes de connexion manuelle et de recherche ponctuelle restent décrites dans [bot/README.md](bot/README.md).
+
+Une surveillance par départements peut aussi sélectionner Faune-France lorsque tous les départements choisis utilisent le portail métropolitain `faune_france` et que le taxon possède un identifiant Faune-France. Les départements ultramarins restent utilisables avec GBIF et iNaturalist, mais leurs portails Faune dédiés ne disposent pas encore de connecteur Playwright.
 
 ## Exploitation
 
