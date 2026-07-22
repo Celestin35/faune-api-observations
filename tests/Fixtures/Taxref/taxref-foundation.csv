@@ -1,0 +1,11 @@
+CD_NOM,CD_REF,CD_SUP,RANG,LB_NOM,LB_AUTEUR,NOM_VERN
+1,1,,KD,Animalia,,Règne animal
+2,2,1,PH,Chordata,,Chordés
+3,3,2,CL,Aves,,Oiseaux
+4,4,3,OR,Passeriformes,,Passériformes
+5,5,4,FM,Tichodromidae,,Tichodromidés
+6,6,5,GN,Tichodroma,,Tichodromes
+7,7,6,ES,Tichodroma muraria,"(Linnaeus, 1766)",Tichodrome échelette
+8,7,6,ES,Tichodroma phoenicoptera,"Temminck, 1820",
+9,9,1,ZZ,Taxon incertus test,,Taxon au rang inconnu
+not-an-id,10,1,ES,,,Ligne volontairement invalide

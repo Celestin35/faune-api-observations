@@ -21,6 +21,11 @@ final class DataCollection extends Model
         return $this->belongsTo(Taxon::class);
     }
 
+    public function referenceVersion(): BelongsTo
+    {
+        return $this->belongsTo(TaxonomicReferenceVersion::class, 'taxonomic_reference_version_id');
+    }
+
     public function observations(): BelongsToMany
     {
         return $this->belongsToMany(Observation::class, 'collection_observations');

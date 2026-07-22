@@ -21,4 +21,9 @@ final class ImportJob extends Model
     {
         return $this->belongsTo(Taxon::class);
     }
+
+    public function referenceVersion(): BelongsTo
+    {
+        return $this->belongsTo(TaxonomicReferenceVersion::class, 'taxonomic_reference_version_id');
+    }
 }

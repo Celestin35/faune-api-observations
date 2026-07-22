@@ -11,6 +11,21 @@ require __DIR__.'/vendor/autoload.php';
 /** @var Application $app */
 $app = require_once __DIR__.'/bootstrap/app.php';
 
-$status = $app->handleCommand(new ArgvInput);
+// Symfony reserves the global --version option. For the TAXREF importer only,
+// translate the requested public option before Symfony parses command options.
+if (in_array(($argv[1] ?? null), ['taxref:import', 'taxref:plan-canonicalization', 'taxref:validate-local-decisions', 'taxref:canonicalize', 'taxref:build-names', 'taxref:build-hierarchy', 'taxref:activate', 'taxref:health-check'], true)) {
+    foreach ($argv as $index => $argument) {
+        if ($index < 2) {
+            continue;
+        }
+        if ($argument === '--version') {
+            $argv[$index] = '--reference-version';
+        } elseif (str_starts_with($argument, '--version=')) {
+            $argv[$index] = '--reference-version='.substr($argument, strlen('--version='));
+        }
+    }
+}
+
+$status = $app->handleCommand(new ArgvInput($argv));
 
 exit($status);

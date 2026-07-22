@@ -4,16 +4,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-final class MonitoringRule extends Model
+final class TaxonName extends Model
 {
+    public const TYPE_ACCEPTED_SCIENTIFIC = 'accepted_scientific';
+
+    public const TYPE_SCIENTIFIC_SYNONYM = 'scientific_synonym';
+
+    public const TYPE_VERNACULAR = 'vernacular';
+
     protected $guarded = [];
 
     protected function casts(): array
     {
-        return ['zone_data' => 'array', 'sources' => 'array', 'is_active' => 'boolean',
-            'last_synced_at' => 'immutable_datetime', 'next_sync_at' => 'immutable_datetime'];
+        return ['is_preferred' => 'boolean'];
     }
 
     public function taxon(): BelongsTo
@@ -26,8 +30,8 @@ final class MonitoringRule extends Model
         return $this->belongsTo(TaxonomicReferenceVersion::class, 'taxonomic_reference_version_id');
     }
 
-    public function observations(): BelongsToMany
+    public function taxrefRecord(): BelongsTo
     {
-        return $this->belongsToMany(Observation::class, 'monitoring_rule_observations');
+        return $this->belongsTo(TaxrefRecord::class);
     }
 }

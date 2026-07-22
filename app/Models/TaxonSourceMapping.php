@@ -9,6 +9,16 @@ final class TaxonSourceMapping extends Model
 {
     protected $guarded = [];
 
+    public static function normalizeSource(string $source): string
+    {
+        return $source === 'faune-france' ? 'faune_france' : str_replace('-', '_', $source);
+    }
+
+    public function setSourceAttribute(string $source): void
+    {
+        $this->attributes['source'] = self::normalizeSource($source);
+    }
+
     protected function casts(): array
     {
         return ['raw_data' => 'array'];

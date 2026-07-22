@@ -1,0 +1,24 @@
+local_taxon_id,scientific_name,decision,taxref_cd_ref,reason
+1,Tichodroma muraria,map_taxref,3780,Correspondance TAXREF et mapping GBIF officiel confirmés
+2,Animalia,map_taxref,183716,Nom accepté et rang règne confirmés
+3,Delphinus delphis,map_taxref,60878,Nom accepté et rang espèce confirmés
+4,Vulpes vulpes,map_taxref,60585,Nom accepté et rang espèce confirmés
+5,Papilio machaon,map_taxref,54468,Nom accepté et rang espèce confirmés
+6,Megarthrus tic,keep_local_unresolved,,Aucun concept TAXREF v18 sûr; mapping GBIF conservé
+7,Brahemyia,keep_local_outside_taxref,,Concept GBIF hors périmètre TAXREF v18; taxon local conservé
+8,Bulbophyllum blaoense,keep_local_outside_taxref,,Concept GBIF hors périmètre TAXREF v18; taxon local conservé
+9,Cleisostoma lecongkietii,keep_local_outside_taxref,,Concept GBIF hors périmètre TAXREF v18; taxon local conservé
+10,Cleisostoma phitamii,keep_local_outside_taxref,,Concept GBIF hors périmètre TAXREF v18; taxon local conservé
+11,Cheirostylis phamhoangii,keep_local_unresolved,,Classification locale incohérente; aucune fusion automatique
+12,Seticotasteromimus,keep_local_outside_taxref,,Concept GBIF hors périmètre TAXREF v18; taxon local conservé
+13,TP-CH-4,keep_local_provisional,,Code de travail bactérien; taxon provisoire conservé
+14,Lacordairius,keep_local_outside_taxref,,Concept GBIF hors périmètre TAXREF v18; taxon local conservé
+15,Schaumius,keep_local_outside_taxref,,Concept GBIF hors périmètre TAXREF v18; taxon local conservé
+16,Draconectes,keep_local_outside_taxref,,Concept GBIF hors périmètre TAXREF v18; taxon local conservé
+17,Lepidodermella,map_taxref,212791,Nom accepté et rang genre confirmés
+18,Hyaenodon,keep_local_outside_taxref,,Concept fossile non résolu dans TAXREF v18; taxon local conservé
+19,Megistotherium,keep_local_outside_taxref,,Concept fossile non résolu dans TAXREF v18; taxon local conservé
+20,Oia imadatei,keep_local_outside_taxref,,Concept GBIF hors périmètre TAXREF v18; taxon local conservé
+21,Acomys sp.Usnm,keep_local_provisional,,Nom de travail contenant sp.; taxon provisoire conservé
+22,Myotis sp.Msb,keep_local_provisional,,Nom de travail contenant sp.; taxon provisoire conservé
+23,Myotis sp.Mvz,keep_local_provisional,,Nom de travail contenant sp.; taxon provisoire conservé
