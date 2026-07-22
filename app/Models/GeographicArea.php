@@ -10,6 +10,6 @@ final class GeographicArea extends Model
 
     protected function casts(): array
     {
-        return ['geometry_geojson' => 'array'];
+        return ['geometry_geojson' => 'array', 'is_overseas' => 'boolean'];
     }
 }

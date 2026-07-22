@@ -1,0 +1,102 @@
+code	name	region_name	faune_portal	west	south	east	north
+01	Ain	Auvergne-Rhône-Alpes	faune_france	4.728068	45.611086	6.170061	46.519919
+02	Aisne	Hauts-de-France	faune_france	2.958036	48.837213	4.255837	50.069499
+03	Allier	Auvergne-Rhône-Alpes	faune_france	2.276786	45.930728	4.005737	46.804287
+04	Alpes-de-Haute-Provence	Provence-Alpes-Côte d'Azur	faune_france	5.496795	43.668327	6.969164	44.659993
+05	Hautes-Alpes	Provence-Alpes-Côte d'Azur	faune_france	5.418363	44.186479	7.077171	45.126844
+06	Alpes-Maritimes	Provence-Alpes-Côte d'Azur	faune_france	6.63541	43.480308	7.718984	44.361287
+07	Ardèche	Auvergne-Rhône-Alpes	faune_france	3.861099	44.264337	4.886472	45.366194
+08	Ardennes	Grand Est	faune_france	4.024492	49.226955	5.394245	50.169299
+09	Ariège	Occitanie	faune_france	0.825995	42.571474	2.175862	43.316203
+10	Aube	Grand Est	faune_france	3.383684	47.923684	4.864612	48.716721
+11	Aude	Occitanie	faune_france	1.688431	42.648901	3.240162	43.460054
+12	Aveyron	Occitanie	faune_france	1.839594	43.690612	3.451759	44.941435
+13	Bouches-du-Rhône	Provence-Alpes-Côte d'Azur	faune_france	4.230216	43.157423	5.813434	43.924134
+14	Calvados	Normandie	faune_france	-1.159764	48.751693	0.446487	49.429908
+15	Cantal	Auvergne-Rhône-Alpes	faune_france	2.062878	44.615766	3.37146	45.483465
+16	Charente	Nouvelle-Aquitaine	faune_france	-0.463158	45.191672	0.947113	46.140845
+17	Charente-Maritime	Nouvelle-Aquitaine	faune_france	-1.562504	45.088739	0.005955	46.371481
+18	Cher	Centre-Val de Loire	faune_france	1.773674	46.420473	3.079736	47.629114
+19	Corrèze	Nouvelle-Aquitaine	faune_france	1.226494	44.920284	2.528724	45.765267
+21	Côte-d'Or	Bourgogne-Franche-Comté	faune_france	4.065191	46.899837	5.518763	48.031297
+22	Côtes-d'Armor	Bretagne	faune_france	-3.665888	48.032594	-1.909049	48.900803
+23	Creuse	Nouvelle-Aquitaine	faune_france	1.372593	45.663546	2.611285	46.455352
+24	Dordogne	Nouvelle-Aquitaine	faune_france	-0.041885	44.570725	1.448239	45.714761
+25	Doubs	Bourgogne-Franche-Comté	faune_france	5.698679	46.553798	7.062389	47.579693
+26	Drôme	Auvergne-Rhône-Alpes	faune_france	4.646865	44.115493	5.830442	45.343968
+27	Eure	Normandie	faune_france	0.296736	48.666432	1.802863	49.485288
+28	Eure-et-Loir	Centre-Val de Loire	faune_france	0.755689	47.953822	1.994571	48.941034
+29	Finistère	Bretagne	faune_france	-5.141249	47.701255	-3.386622	48.753531
+2A	Corse-du-Sud	Corse	faune_france	8.534683	41.333553	9.40797	42.381567
+2B	Haute-Corse	Corse	faune_france	8.573256	41.832182	9.55999	43.027639
+30	Gard	Occitanie	faune_france	3.262447	43.460463	4.845569	44.45966
+31	Haute-Garonne	Occitanie	faune_france	0.441682	42.689163	2.048304	43.921518
+32	Gers	Occitanie	faune_france	-0.282314	43.310847	1.203249	44.080012
+33	Gironde	Nouvelle-Aquitaine	faune_france	-1.260976	44.193888	0.315123	45.586505
+34	Hérault	Occitanie	faune_france	2.539556	43.210214	4.194541	43.972753
+35	Ille-et-Vilaine	Bretagne	faune_france	-2.288994	47.631636	-1.015613	48.721714
+36	Indre	Centre-Val de Loire	faune_france	0.867407	46.346901	2.204562	47.277464
+37	Indre-et-Loire	Centre-Val de Loire	faune_france	0.052739	46.736711	1.366047	47.709872
+38	Isère	Auvergne-Rhône-Alpes	faune_france	4.74204	44.69587	6.359303	45.883393
+39	Jura	Bourgogne-Franche-Comté	faune_france	5.252037	46.260687	6.207186	47.305932
+40	Landes	Nouvelle-Aquitaine	faune_france	-1.533299	43.487411	0.136763	44.532368
+41	Loir-et-Cher	Centre-Val de Loire	faune_france	0.580493	47.18639	2.247893	48.13324
+42	Loire	Auvergne-Rhône-Alpes	faune_france	3.68842	45.231034	4.760378	46.276565
+43	Haute-Loire	Auvergne-Rhône-Alpes	faune_france	3.082192	44.743957	4.490823	45.427605
+44	Loire-Atlantique	Pays de la Loire	faune_france	-2.625436	46.860078	-0.946661	47.835943
+45	Loiret	Centre-Val de Loire	faune_france	1.512379	47.483023	3.128678	48.344957
+46	Lot	Occitanie	faune_france	0.981513	44.203336	2.210889	45.046675
+47	Lot-et-Garonne	Nouvelle-Aquitaine	faune_france	-0.14069	43.972574	1.078333	44.765665
+48	Lozère	Occitanie	faune_france	2.981198	44.109591	3.99837	44.975754
+49	Maine-et-Loire	Pays de la Loire	faune_france	-1.354199	46.968899	0.234555	47.809993
+50	Manche	Normandie	faune_france	-1.954968	48.455833	-0.734789	49.727592
+51	Marne	Grand Est	faune_france	3.395886	48.515241	5.03968	49.40782
+52	Haute-Marne	Grand Est	faune_france	4.626614	47.576553	5.890943	48.689303
+53	Mayenne	Pays de la Loire	faune_france	-1.238757	47.733399	-0.049142	48.567994
+54	Meurthe-et-Moselle	Grand Est	faune_france	5.426128	48.348966	7.123195	49.563314
+55	Meuse	Grand Est	faune_france	4.888389	48.408972	5.854211	49.616844
+56	Morbihan	Bretagne	faune_france	-3.734903	47.277896	-2.03539	48.210919
+57	Moselle	Grand Est	faune_france	5.891892	48.526702	7.640025	49.514903
+58	Nièvre	Bourgogne-Franche-Comté	faune_france	2.844895	46.651017	4.231911	47.58828
+59	Nord	Hauts-de-France	faune_france	2.089322	49.969059	4.23126	51.089152
+60	Oise	Hauts-de-France	faune_france	1.688852	49.060526	3.165764	49.763862
+61	Orne	Normandie	faune_france	-0.860543	48.17989	0.976564	48.972541
+62	Pas-de-Calais	Hauts-de-France	faune_france	1.555373	50.019845	3.188217	51.010678
+63	Puy-de-Dôme	Auvergne-Rhône-Alpes	faune_france	2.388059	45.287066	3.985346	46.256594
+64	Pyrénées-Atlantiques	Nouvelle-Aquitaine	faune_france	-1.792351	42.777857	0.029794	43.596836
+65	Hautes-Pyrénées	Occitanie	faune_france	-0.327176	42.673225	0.646118	43.613317
+66	Pyrénées-Orientales	Occitanie	faune_france	1.721463	42.332922	3.17782	42.918532
+67	Bas-Rhin	Grand Est	faune_france	6.940601	48.120353	8.232497	49.077832
+68	Haut-Rhin	Grand Est	faune_france	6.841014	47.420341	7.62198	48.311179
+69	Rhône	Auvergne-Rhône-Alpes	faune_france	4.243661	45.454124	5.160111	46.306495
+70	Haute-Saône	Bourgogne-Franche-Comté	faune_france	5.36695	47.252542	6.824936	48.024135
+71	Saône-et-Loire	Bourgogne-Franche-Comté	faune_france	3.62259	46.156065	5.465285	47.155762
+72	Sarthe	Pays de la Loire	faune_france	-0.448056	47.568408	0.916651	48.485027
+73	Savoie	Auvergne-Rhône-Alpes	faune_france	5.621902	45.051683	7.185565	45.938529
+74	Haute-Savoie	Auvergne-Rhône-Alpes	faune_france	5.805021	45.681652	7.044472	46.408229
+75	Paris	Île-de-France	faune_france	2.224219	48.815562	2.469851	48.902148
+76	Seine-Maritime	Normandie	faune_france	0.06568	49.25065	1.790776	50.072204
+77	Seine-et-Marne	Île-de-France	faune_france	2.39234	48.120077	3.559027	49.117903
+78	Yvelines	Île-de-France	faune_france	1.4463	48.438559	2.229144	49.085407
+79	Deux-Sèvres	Nouvelle-Aquitaine	faune_france	-0.903518	45.969661	0.220394	47.108549
+80	Somme	Hauts-de-France	faune_france	1.380218	49.571781	3.202769	50.367735
+81	Tarn	Occitanie	faune_france	1.535198	43.382269	2.93748	44.201482
+82	Tarn-et-Garonne	Occitanie	faune_france	0.737805	43.767575	2.000899	44.393913
+83	Var	Provence-Alpes-Côte d'Azur	faune_france	5.655905	42.982029	6.933448	43.808882
+84	Vaucluse	Provence-Alpes-Côte d'Azur	faune_france	4.649085	43.658719	5.757338	44.431563
+85	Vendée	Pays de la Loire	faune_france	-2.400867	46.266742	-0.538148	47.085015
+86	Vienne	Nouvelle-Aquitaine	faune_france	-0.105027	46.048263	1.213222	47.175991
+87	Haute-Vienne	Nouvelle-Aquitaine	faune_france	0.629239	45.436623	1.911071	46.401581
+88	Vosges	Grand Est	faune_france	5.393632	47.813284	7.198345	48.513643
+89	Yonne	Bourgogne-Franche-Comté	faune_france	2.848439	47.310354	4.340301	48.400053
+90	Territoire de Belfort	Bourgogne-Franche-Comté	faune_france	6.756245	47.433323	7.143363	47.825098
+91	Essonne	Île-de-France	faune_france	1.914528	48.284559	2.58565	48.776135
+92	Hauts-de-Seine	Île-de-France	faune_france	2.145719	48.729354	2.33696	48.951088
+93	Seine-Saint-Denis	Île-de-France	faune_france	2.28833	48.80725	2.603314	49.012332
+94	Val-de-Marne	Île-de-France	faune_france	2.308694	48.687631	2.615682	48.861487
+95	Val-d'Oise	Île-de-France	faune_france	1.608748	48.908625	2.595002	49.241488
+971	Guadeloupe	Guadeloupe	faune_antilles	-61.809839	15.832041	-61.001959	16.514488
+972	Martinique	Martinique	faune_antilles	-61.229033	14.388646	-60.809655	14.878716
+973	Guyane	Guyane	faune_guyane	-54.602416	2.111073	-51.619066	5.748682
+974	La Réunion	La Réunion	faune_reunion	55.21655	-21.389631	55.836654	-20.871841
+976	Mayotte	Mayotte	faune_mayotte	45.01833	-13.005254	45.299985	-12.63659
