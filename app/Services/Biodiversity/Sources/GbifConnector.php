@@ -156,7 +156,7 @@ final class GbifConnector extends AbstractHttpConnector implements OccurrenceSou
             // taxonKey includes descendants, which is essential for genus,
             // family and Animalia searches. scientificName=Animalia returned 0
             // in the live audit because it only targets that name literally.
-            'taxonKey' => $this->resolveTaxonKey($query->taxon),
+            'taxonKey' => is_numeric($query->sourceTaxonId) ? (int) $query->sourceTaxonId : $this->resolveTaxonKey($query->taxon),
             'eventDate' => $query->from !== null ? $query->from.','.$query->to : null,
             'country' => $query->country,
             'geometry' => $geometry,

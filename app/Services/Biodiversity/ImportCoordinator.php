@@ -20,6 +20,8 @@ final class ImportCoordinator
                 'zone_hash' => $definition->zoneHash(), 'status' => 'pending',
                 'limit' => (int) config('biodiversity.import_limit_per_source', 10000),
                 'estimated_count' => is_numeric($estimates[$source] ?? null) ? (int) $estimates[$source] : null,
+                'taxonomic_reference_version_id' => $definition->taxonomicReferenceVersionId,
+                'taxon_scope' => $definition->taxonScope, 'taxon_label_snapshot' => $definition->taxonLabel(),
             ]);
             ImportObservationsJob::dispatch($job->id);
             $jobs[] = $job;

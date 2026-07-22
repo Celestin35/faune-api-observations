@@ -24,6 +24,8 @@ final class CollectionController
             'zone_type' => $definition->zoneType(), 'zone_data' => $definition->zone,
             'zone_hash' => $definition->zoneHash(), 'sources' => $definition->sources,
             'is_permanent' => $request->boolean('is_permanent'),
+            'taxonomic_reference_version_id' => $definition->taxonomicReferenceVersionId,
+            'taxon_scope' => $definition->taxonScope, 'taxon_label_snapshot' => $definition->taxonLabel(),
         ]);
 
         return response()->json(['data' => $collection], 201);

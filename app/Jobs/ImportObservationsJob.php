@@ -38,7 +38,8 @@ final class ImportObservationsJob implements ShouldQueue
 
         try {
             $definition = new SearchDefinition($import->taxon, $import->date_from->toDateString(),
-                $import->date_to->toDateString(), $import->zone_data, [$import->source]);
+                $import->date_to->toDateString(), $import->zone_data, [$import->source],
+                $import->taxon_scope, $import->taxonomic_reference_version_id);
             $processed = $created = $updated = $unchanged = $failed = $estimated = 0;
             $queries = $queryFactory->forSource($definition, $import->source);
             $completedQueries = 0;
@@ -70,6 +71,8 @@ final class ImportObservationsJob implements ShouldQueue
                 'source' => $import->source, 'zone_hash' => $import->zone_hash,
                 'covered_from' => $import->date_from, 'covered_to' => $import->date_to,
                 'observation_count' => $processed, 'status' => $status, 'last_synced_at' => now(),
+                'taxonomic_reference_version_id' => $import->taxonomic_reference_version_id,
+                'taxon_scope' => $import->taxon_scope, 'taxon_label_snapshot' => $import->taxon_label_snapshot,
             ]);
             $this->completeMonitoring($import, null);
         } catch (\Throwable $exception) {

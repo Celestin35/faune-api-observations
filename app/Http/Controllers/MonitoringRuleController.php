@@ -19,8 +19,8 @@ final class MonitoringRuleController
     {
         $request->validate(['name' => ['required', 'string', 'max:255'], 'window_minutes' => ['required', 'integer', 'min:5'],
             'frequency_minutes' => ['required', 'integer', 'min:5'], 'is_active' => ['sometimes', 'boolean']]);
-        $definition = $factory->make($request->all());
-        $minimum = in_array('gbif', $definition->sources, true) ? 30 : 5;
+        $definition = $factory->make($request->all(), allowFauneFrance: true);
+        $minimum = array_intersect(['gbif', 'faune-france'], $definition->sources) ? 30 : 5;
         if ($request->integer('frequency_minutes') < $minimum) {
             return response()->json(['message' => "La fréquence minimale est de {$minimum} minutes pour ces sources."], 422);
         }
@@ -29,6 +29,8 @@ final class MonitoringRuleController
             'zone_type' => $definition->zoneType(), 'zone_data' => $definition->zone, 'zone_hash' => $definition->zoneHash(),
             'sources' => $definition->sources, 'window_minutes' => $request->integer('window_minutes'),
             'frequency_minutes' => $request->integer('frequency_minutes'), 'is_active' => $request->boolean('is_active', true),
+            'taxonomic_reference_version_id' => $definition->taxonomicReferenceVersionId,
+            'taxon_scope' => $definition->taxonScope, 'taxon_label_snapshot' => $definition->taxonLabel(),
             'next_sync_at' => now(),
         ]);
 
@@ -44,7 +46,7 @@ final class MonitoringRuleController
     {
         $data = $request->validate(['name' => ['sometimes', 'string', 'max:255'], 'is_active' => ['sometimes', 'boolean'],
             'frequency_minutes' => ['sometimes', 'integer', 'min:5'], 'window_minutes' => ['sometimes', 'integer', 'min:5']]);
-        $minimum = in_array('gbif', $monitoring->sources, true) ? 30 : 5;
+        $minimum = array_intersect(['gbif', 'faune-france'], $monitoring->sources) ? 30 : 5;
         if (isset($data['frequency_minutes']) && $data['frequency_minutes'] < $minimum) {
             return response()->json(['message' => "La fréquence minimale est de {$minimum} minutes."], 422);
         }

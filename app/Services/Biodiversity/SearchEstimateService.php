@@ -46,6 +46,8 @@ final class SearchEstimateService
         $missing = [];
         foreach ($definition->sources as $source) {
             $ranges = CollectionCoverage::query()->where('taxon_id', $definition->taxon?->id)
+                ->where('taxon_scope', $definition->taxonScope)
+                ->where('taxonomic_reference_version_id', $definition->taxonomicReferenceVersionId)
                 ->where('zone_hash', $definition->zoneHash())->where('source', $source)->where('status', 'completed')
                 ->get()->map(fn (CollectionCoverage $item): array => [
                     'from' => $item->covered_from->toDateString(), 'to' => $item->covered_to->toDateString(),

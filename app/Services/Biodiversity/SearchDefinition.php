@@ -13,6 +13,8 @@ final readonly class SearchDefinition
         public string $dateTo,
         public array $zone,
         public array $sources,
+        public string $taxonScope = 'exact',
+        public ?int $taxonomicReferenceVersionId = null,
     ) {}
 
     public function zoneType(): string
@@ -20,9 +22,17 @@ final readonly class SearchDefinition
         return (string) $this->zone['type'];
     }
 
+    public function taxonLabel(): ?string
+    {
+        return $this->taxon === null
+            ? null
+            : ($this->taxon->preferred_french_name ?: $this->taxon->accepted_scientific_name ?: $this->taxon->vernacular_name ?: $this->taxon->scientific_name);
+    }
+
     public function zoneHash(): string
     {
         $zone = $this->zone;
+        unset($zone['address']);
         if (isset($zone['department_codes'])) {
             sort($zone['department_codes']);
         }

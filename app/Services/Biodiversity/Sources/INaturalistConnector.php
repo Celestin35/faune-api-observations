@@ -142,7 +142,8 @@ final class INaturalistConnector extends AbstractHttpConnector implements Occurr
         }
 
         return [
-            'taxon_name' => $query->taxon,
+            'taxon_id' => is_numeric($query->sourceTaxonId) ? (int) $query->sourceTaxonId : null,
+            'taxon_name' => $query->sourceTaxonId === null ? $query->taxon : null,
             'd1' => $query->from,
             'd2' => $query->to,
             'place_id' => $placeId,

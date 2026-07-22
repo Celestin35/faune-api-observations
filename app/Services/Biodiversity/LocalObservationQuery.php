@@ -14,7 +14,13 @@ final class LocalObservationQuery
         $query = Observation::query()->with(['taxon', 'sources'])
             ->whereBetween('observed_at', [$definition->dateFrom.' 00:00:00', $definition->dateTo.' 23:59:59']);
         if ($definition->taxon) {
-            $query->where('taxon_id', $definition->taxon->id);
+            if ($definition->taxonScope === 'subtree' && $definition->taxonomicReferenceVersionId !== null) {
+                $query->whereIn('taxon_id', \DB::table('taxon_paths')
+                    ->where('taxonomic_reference_version_id', $definition->taxonomicReferenceVersionId)
+                    ->where('ancestor_taxon_id', $definition->taxon->id)->select('descendant_taxon_id'));
+            } else {
+                $query->where('taxon_id', $definition->taxon->id);
+            }
         }
         if ($definition->zoneType() === 'radius') {
             $degrees = $definition->zone['radius_km'] / 111;

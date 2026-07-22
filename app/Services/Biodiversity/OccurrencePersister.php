@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 
 final class OccurrencePersister
 {
-    public function __construct(private DeduplicationHints $hints) {}
+    public function __construct(private DeduplicationHints $hints, private TaxonNameNormalizer $nameNormalizer) {}
 
     public function persist(NormalizedOccurrence $item, ?int $collectionId = null, ?int $monitoringRuleId = null): PersistOutcome
     {
@@ -29,7 +29,7 @@ final class OccurrencePersister
                 $before = hash('sha256', json_encode($existing->raw_data, JSON_THROW_ON_ERROR));
                 $existing->fill($this->sourceAttributes($item, $identifiers, $originKey))->save();
                 $observation = $existing->observation;
-                $observation->update(['last_seen_at' => now()]);
+                $observation->update($this->observationAttributes($item) + ['last_seen_at' => now()]);
                 $this->attach($observation, $collectionId, $monitoringRuleId);
                 $after = hash('sha256', json_encode($item->rawData, JSON_THROW_ON_ERROR));
 
@@ -42,14 +42,7 @@ final class OccurrencePersister
             $created = false;
             if (! $observation) {
                 $created = true;
-                $observation = Observation::create([
-                    'taxon_id' => $taxon?->id,
-                    'observed_at' => $this->date($item->observedAt),
-                    'latitude' => $item->latitude, 'longitude' => $item->longitude,
-                    'coordinate_uncertainty_m' => $item->coordinateUncertaintyM,
-                    'individual_count' => $item->individualCount,
-                    'validation_status' => $item->validationStatus,
-                    'observer_name' => $item->observerName,
+                $observation = Observation::create($this->observationAttributes($item, $taxon?->id) + [
                     'first_imported_at' => now(), 'last_seen_at' => now(),
                     'geometry' => DB::getDriverName() === 'sqlite' && $item->longitude !== null
                         ? json_encode(['type' => 'Point', 'coordinates' => [$item->longitude, $item->latitude]], JSON_THROW_ON_ERROR) : null,
@@ -72,6 +65,27 @@ final class OccurrencePersister
     }
 
     /** @return array<string, mixed> */
+    private function observationAttributes(NormalizedOccurrence $item, ?int $taxonId = null): array
+    {
+        $attributes = [
+            'observed_at' => $this->date($item->observedAt),
+            'latitude' => $item->latitude,
+            'longitude' => $item->longitude,
+            'coordinate_uncertainty_m' => $item->coordinateUncertaintyM,
+            'individual_count' => $item->individualCount,
+            'validation_status' => $item->validationStatus,
+            'observer_name' => $item->observerName,
+            'location_name' => $item->locationName,
+            'remarks' => $item->remarks,
+        ];
+        if ($taxonId !== null) {
+            $attributes['taxon_id'] = $taxonId;
+        }
+
+        return $attributes;
+    }
+
+    /** @return array<string, mixed> */
     private function sourceAttributes(NormalizedOccurrence $item, array $identifiers, string $originKey): array
     {
         return [
@@ -88,7 +102,8 @@ final class OccurrencePersister
     private function taxon(NormalizedOccurrence $item): ?Taxon
     {
         if ($item->sourceTaxonId !== null) {
-            $mapping = TaxonSourceMapping::query()->where('source', $item->source)
+            $mappingSource = TaxonSourceMapping::normalizeSource($item->source);
+            $mapping = TaxonSourceMapping::query()->where('source', $mappingSource)
                 ->where('source_taxon_id', $item->sourceTaxonId)->first();
             if ($mapping) {
                 return $mapping->taxon;
@@ -98,12 +113,34 @@ final class OccurrencePersister
             return null;
         }
         $rank = array_key_last($item->classification);
-        $taxon = Taxon::firstOrCreate(['scientific_name' => $item->scientificName], [
-            'vernacular_name' => $item->vernacularName, 'rank' => $rank, 'classification' => $item->classification,
-        ]);
+        $normalized = $this->nameNormalizer->normalize($item->scientificName);
+        $candidates = Taxon::query()->whereIn('id', \DB::table('taxon_names')
+            ->where('normalized_name', $normalized)->select('taxon_id'))->limit(10)->get();
+        if ($rank !== null) {
+            $ranked = $candidates->filter(fn (Taxon $candidate): bool => ($candidate->rank_code ?? $candidate->rank) === $rank);
+            if ($ranked->isNotEmpty()) {
+                $candidates = $ranked;
+            }
+        }
+        $taxon = $candidates->count() === 1 ? $candidates->first() : null;
+        if ($taxon === null && $candidates->isEmpty()) {
+            $taxon = Taxon::query()->whereNull('taxref_version_id')->where('scientific_name', $item->scientificName)->firstOrCreate([
+                'scientific_name' => $item->scientificName,
+            ], [
+                'vernacular_name' => $item->vernacularName, 'rank' => $rank,
+                'classification' => $item->classification, 'taxonomic_status' => 'local_unresolved',
+            ]);
+        }
+        if ($taxon === null) {
+            return null;
+        }
         if ($item->sourceTaxonId !== null) {
-            TaxonSourceMapping::updateOrCreate(['source' => $item->source, 'source_taxon_id' => $item->sourceTaxonId],
-                ['taxon_id' => $taxon->id, 'raw_data' => []]);
+            TaxonSourceMapping::updateOrCreate(['source' => TaxonSourceMapping::normalizeSource($item->source), 'source_taxon_id' => $item->sourceTaxonId],
+                [
+                    'taxon_id' => $taxon->id, 'source_scientific_name' => $item->scientificName,
+                    'source_rank' => $rank, 'mapping_status' => 'candidate', 'match_type' => 'exact_name',
+                    'confidence' => .8, 'is_preferred' => false, 'raw_data' => [],
+                ]);
         }
 
         return $taxon;
@@ -142,7 +179,7 @@ final class OccurrencePersister
             return null;
         }
         try {
-            return CarbonImmutable::parse($value);
+            return CarbonImmutable::parse($value)->utc();
         } catch (\Throwable) {
             return null;
         }

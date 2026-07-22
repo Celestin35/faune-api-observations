@@ -24,6 +24,7 @@ final readonly class OccurrenceQuery
         public ?array $boundingBox = null,
         public ?string $department = null,
         public ?string $region = null,
+        public ?string $sourceTaxonId = null,
     ) {
         if (($latitude === null) !== ($longitude === null)) {
             throw new InvalidArgumentException('Latitude and longitude must be provided together.');

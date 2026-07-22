@@ -16,8 +16,8 @@ final class TaxonController
         return response()->json(['data' => $service->search($data['q'], (int) ($data['limit'] ?? 10))]);
     }
 
-    public function show(Taxon $taxon): JsonResponse
+    public function show(Taxon $taxon, TaxonSearchService $service): JsonResponse
     {
-        return response()->json(['data' => $taxon->load('mappings')]);
+        return response()->json(['data' => $service->one($taxon->load(['mappings', 'rankDefinition', 'referenceVersion']))]);
     }
 }

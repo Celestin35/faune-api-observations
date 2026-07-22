@@ -4,10 +4,15 @@ namespace Tests\Feature;
 
 use App\Jobs\ImportObservationsJob;
 use App\Models\DataCollection;
+use App\Models\ExternalFetchJob;
+use App\Models\GeographicArea;
 use App\Models\ImportJob;
 use App\Models\MonitoringRule;
 use App\Models\Observation;
 use App\Models\Taxon;
+use App\Models\TaxonName;
+use App\Models\TaxonomicReferenceVersion;
+use App\Models\TaxrefRecord;
 use App\Services\Biodiversity\Data\NormalizedOccurrence;
 use App\Services\Biodiversity\OccurrencePersister;
 use App\Services\Biodiversity\PersistOutcome;
@@ -42,28 +47,41 @@ final class V0ApiTest extends TestCase
         $migration = file_get_contents(database_path('migrations/2026_07_21_000001_create_observations_v0_tables.php'));
         self::assertStringContainsString('CREATE EXTENSION IF NOT EXISTS postgis', $migration);
         self::assertStringContainsString('USING GIST (geometry)', $migration);
+        self::assertTrue(Schema::hasColumns('geographic_areas', ['region_name', 'is_overseas', 'faune_portal']));
     }
 
     #[Test]
-    public function taxon_search_combines_gbif_and_inaturalist_resolution(): void
+    public function taxon_search_is_local_side_effect_free_and_uses_the_stable_contract(): void
     {
-        Http::fake(function (Request $request) {
-            if (str_contains($request->url(), 'api.gbif.org')) {
-                return Http::response(['results' => [
-                    ['key' => 2484918, 'canonicalName' => 'Tichodroma muraria',
-                        'rank' => 'SPECIES', 'kingdom' => 'Animalia', 'species' => 'Tichodroma muraria'],
-                    ['key' => 9999999, 'canonicalName' => 'Tichodroma muraria',
-                        'rank' => 'SPECIES', 'kingdom' => 'Animalia', 'species' => 'Tichodroma muraria'],
-                ]]);
-            }
+        Http::fake();
+        $version = TaxonomicReferenceVersion::create(['provider' => 'taxref', 'version' => '18', 'status' => 'active']);
+        $taxon = Taxon::create([
+            'taxref_version_id' => $version->id, 'taxref_cd_ref' => 3780,
+            'scientific_name' => 'Tichodroma muraria', 'accepted_scientific_name' => 'Tichodroma muraria',
+            'preferred_french_name' => 'Tichodrome échelette', 'rank' => 'species', 'taxonomic_status' => 'canonical',
+        ]);
+        $record = TaxrefRecord::create([
+            'taxonomic_reference_version_id' => $version->id, 'taxon_id' => $taxon->id,
+            'cd_nom' => 3780, 'cd_ref' => 3780, 'scientific_name' => 'Tichodroma muraria',
+            'name_status' => 'accepted', 'raw_data' => ['RANG' => 'ES'],
+        ]);
+        $taxon->update(['current_taxref_record_id' => $record->id]);
+        TaxonName::create([
+            'taxon_id' => $taxon->id, 'taxonomic_reference_version_id' => $version->id,
+            'taxref_record_id' => $record->id, 'name' => 'Tichodrome échelette',
+            'normalized_name' => 'tichodrome echelette', 'name_type' => 'vernacular',
+            'language_code' => 'fr', 'is_preferred' => true, 'source' => 'taxref',
+        ]);
+        $before = [Taxon::count(), TaxonName::count()];
 
-            return Http::response(['results' => [['id' => 14840, 'name' => 'Tichodroma muraria', 'rank' => 'species',
-                'preferred_common_name' => 'Wallcreeper']]]);
-        });
-        $this->getJson('/api/taxa/search?q=Tichodroma%20muraria')->assertOk()
-            ->assertJsonPath('data.0.scientific_name', 'Tichodroma muraria')
-            ->assertJsonCount(2, 'data.0.mappings');
-        self::assertSame(1, Taxon::where('scientific_name', 'Tichodroma muraria')->first()->mappings()->where('source', 'gbif')->count());
+        $this->getJson('/api/taxa/search?q=Tichodrome')->assertOk()
+            ->assertJsonPath('data.0.acceptedScientificName', 'Tichodroma muraria')
+            ->assertJsonPath('data.0.preferredFrenchName', 'Tichodrome échelette')
+            ->assertJsonPath('data.0.reference.cdRef', 3780)
+            ->assertJsonMissingPath('data.0.raw_data');
+
+        self::assertSame($before, [Taxon::count(), TaxonName::count()]);
+        Http::assertNothingSent();
     }
 
     #[Test]
@@ -101,6 +119,115 @@ final class V0ApiTest extends TestCase
         self::assertCount(3, $gbif);
         self::assertSame('FRA.11.1_1', $gbif[0]->department);
         self::assertSame('30195', $inat[0]->department);
+        self::assertSame('2484918', $gbif[0]->sourceTaxonId);
+        self::assertSame('14840', $inat[0]->sourceTaxonId);
+    }
+
+    #[Test]
+    public function monitoring_stores_an_address_label_without_changing_the_spatial_hash(): void
+    {
+        $taxon = Taxon::create(['scientific_name' => 'Tichodroma muraria', 'rank' => 'species']);
+        $payload = $this->searchPayload($taxon->id, [
+            'type' => 'radius', 'address' => ' Rennes, France ', 'latitude' => 48.1173,
+            'longitude' => -1.6778, 'radius_km' => 30,
+        ]) + ['name' => 'Veille Rennes', 'window_minutes' => 10080, 'frequency_minutes' => 30];
+
+        $this->postJson('/api/monitoring', $payload)->assertCreated()
+            ->assertJsonPath('data.zone_data.address', 'Rennes, France')
+            ->assertJsonPath('data.zone_data.latitude', 48.1173)
+            ->assertJsonPath('data.zone_data.longitude', -1.6778);
+
+        $factory = app(SearchDefinitionFactory::class);
+        $otherLabel = $payload;
+        $otherLabel['zone']['address'] = 'Même point, autre libellé';
+        self::assertSame($factory->make($payload)->zoneHash(), $factory->make($otherLabel)->zoneHash());
+    }
+
+    #[Test]
+    public function monitoring_accepts_only_configured_departments(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $taxonId = Taxon::where('scientific_name', 'Tichodroma muraria')->value('id');
+        $payload = $this->searchPayload($taxonId, [
+            'type' => 'departments', 'department_codes' => ['9', '22'],
+        ]) + ['name' => 'Veille départements', 'window_minutes' => 10080, 'frequency_minutes' => 30];
+
+        $this->postJson('/api/monitoring', $payload)->assertCreated()
+            ->assertJsonPath('data.zone_type', 'departments')
+            ->assertJsonPath('data.zone_data.department_codes.0', '09')
+            ->assertJsonPath('data.zone_data.department_codes.1', '22');
+
+        $payload['zone']['department_codes'] = ['99'];
+        $this->postJson('/api/monitoring', $payload)->assertUnprocessable()
+            ->assertJsonValidationErrors('zone.department_codes');
+    }
+
+    #[Test]
+    public function geographic_reference_contains_the_101_french_departments_and_all_portals(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        self::assertSame(101, GeographicArea::where('type', 'department')->count());
+        self::assertFalse(GeographicArea::where('code', '20')->exists());
+        self::assertTrue(GeographicArea::whereIn('code', ['2A', '2B'])->count() === 2);
+        self::assertSame(96, GeographicArea::where('faune_portal', 'faune_france')->count());
+        self::assertSame(2, GeographicArea::where('faune_portal', 'faune_antilles')->count());
+        foreach (['973' => 'faune_guyane', '974' => 'faune_reunion', '976' => 'faune_mayotte'] as $code => $portal) {
+            $area = GeographicArea::where('code', $code)->firstOrFail();
+            self::assertTrue($area->is_overseas);
+            self::assertSame($portal, $area->faune_portal);
+            self::assertNotNull($area->region_name);
+            self::assertNotNull($area->geometry_geojson);
+        }
+    }
+
+    #[Test]
+    public function gbif_and_inaturalist_can_query_all_101_departments(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $taxonId = Taxon::where('scientific_name', 'Tichodroma muraria')->value('id');
+        $codes = GeographicArea::where('type', 'department')->orderBy('code')->pluck('code')->all();
+        $definition = app(SearchDefinitionFactory::class)->make($this->searchPayload($taxonId, [
+            'type' => 'departments', 'department_codes' => $codes,
+        ]));
+
+        foreach (['gbif', 'inaturalist'] as $source) {
+            $queries = app(SearchQueryFactory::class)->forSource($definition, $source);
+            self::assertCount(101, $queries);
+            foreach ($queries as $query) {
+                self::assertTrue($query->department !== null || $query->boundingBox !== null);
+            }
+        }
+    }
+
+    #[Test]
+    public function faune_france_monitoring_is_limited_to_one_metropolitan_portal(): void
+    {
+        Queue::fake();
+        $this->seed(DatabaseSeeder::class);
+        $taxonId = Taxon::where('scientific_name', 'Tichodroma muraria')->value('id');
+        $payload = $this->searchPayload($taxonId, [
+            'type' => 'departments', 'department_codes' => ['09', '22'],
+        ]) + ['name' => 'Veille Faune-France', 'window_minutes' => 10080, 'frequency_minutes' => 30];
+        $payload['sources'] = ['faune-france'];
+
+        $id = $this->postJson('/api/monitoring', $payload)->assertCreated()->json('data.id');
+        $this->postJson("/api/monitoring/{$id}/sync")->assertAccepted();
+        $job = ExternalFetchJob::firstOrFail();
+        self::assertSame($id, $job->monitoring_rule_id);
+        self::assertSame(['09', '22'], $job->payload['departments']);
+        self::assertSame('383', $job->payload['taxon']['fauneFranceId']);
+        Queue::assertNothingPushed();
+
+        $payload['zone']['department_codes'] = ['971'];
+        $this->postJson('/api/monitoring', $payload)->assertUnprocessable()->assertJsonValidationErrors('sources');
+        $payload['zone']['department_codes'] = ['09', '971'];
+        $this->postJson('/api/monitoring', $payload)->assertUnprocessable()->assertJsonValidationErrors('sources');
+
+        $payload['sources'] = ['gbif', 'inaturalist'];
+        $payload['zone']['department_codes'] = ['971'];
+        $this->postJson('/api/monitoring', $payload)->assertCreated();
+        self::assertSame(1, ExternalFetchJob::count());
     }
 
     #[Test]
