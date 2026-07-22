@@ -7,6 +7,7 @@ export interface SearchConfig {
   dateTo: string;
   departments: string[];
   pagePauseMs: number;
+  maxPages: number;
   headless: boolean;
 }
 
@@ -94,6 +95,11 @@ export function validateConfig(value: unknown): SearchConfig {
     throw new Error("pagePauseMs doit être un entier compris entre 500 et 60000.");
   }
 
+  const maxPages = input.maxPages === undefined ? 100 : Number(input.maxPages);
+  if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 1000) {
+    throw new Error("maxPages doit être un entier compris entre 1 et 1000.");
+  }
+
   if (input.headless !== undefined && typeof input.headless !== "boolean") {
     throw new Error("headless doit être un booléen.");
   }
@@ -103,6 +109,7 @@ export function validateConfig(value: unknown): SearchConfig {
     dateTo,
     departments,
     pagePauseMs,
+    maxPages,
     headless: input.headless ?? true
   };
 }

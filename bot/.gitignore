@@ -1,4 +1,5 @@
 node_modules/
-data/browser-profile/
+.env
+data/browser-profile*/
 data/output/*
 !data/output/.gitkeep

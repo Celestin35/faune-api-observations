@@ -1,7 +1,8 @@
 {
-  "dateFrom": "2026-06-22",
+  "dateFrom": "2025-07-22",
   "dateTo": "2026-07-22",
-  "departments": ["09"],
+  "departments": ["04", "05", "06", "09", "26", "31", "38", "64", "65", "66", "73", "74"],
   "pagePauseMs": 1500,
+  "maxPages": 100,
   "headless": true
 }

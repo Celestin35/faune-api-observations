@@ -20,6 +20,7 @@ abstract class TestCase extends BaseTestCase
             'DB_DATABASE' => ':memory:',
             'QUEUE_CONNECTION' => 'sync',
             'FAUNE_FRANCE_TOKEN' => 'test-faune-token',
+            'FAUNE_FRANCE_BOT_TOKEN' => 'test-bot-token',
             'BIODIVERSITY_MIN_INTERVAL_MS' => '0',
             'BIODIVERSITY_RETRY_DELAY_MULTIPLIER' => '0',
             'INATURALIST_IMPORT_PAUSE_MS' => '0',

@@ -8,6 +8,10 @@ return [
     'retry_delay_multiplier' => (int) env('BIODIVERSITY_RETRY_DELAY_MULTIPLIER', 1),
     'import_limit_per_source' => min((int) env('BIODIVERSITY_IMPORT_LIMIT', 10000), 10000),
     'faune_france_token' => env('FAUNE_FRANCE_TOKEN'),
+    'faune_france_bot_token' => env('FAUNE_FRANCE_BOT_TOKEN'),
+    'faune_france_bot_stale_seconds' => (int) env('FAUNE_FRANCE_BOT_STALE_SECONDS', 300),
+    'faune_france_max_pages' => (int) env('FAUNE_FRANCE_MAX_PAGES', 100),
+    'faune_france_page_pause_ms' => (int) env('FAUNE_FRANCE_PAGE_PAUSE_MS', 1500),
     'retention_days' => (int) env('BIODIVERSITY_RETENTION_DAYS', 365),
     'inaturalist_gbif_dataset_key' => env('INATURALIST_GBIF_DATASET_KEY', '50c9509d-22c7-4a22-a47d-8c48425ef4a7'),
     'sources' => [

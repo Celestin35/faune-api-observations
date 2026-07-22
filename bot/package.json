@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "login": "tsx src/login.ts",
-    "test-search": "tsx src/test-search.ts",
+    "login": "node --env-file-if-exists=.env --import tsx src/login.ts",
+    "search": "node --env-file-if-exists=.env --import tsx src/search.ts",
+    "test-search": "node --env-file-if-exists=.env --import tsx src/test-search.ts",
+    "worker": "node --env-file-if-exists=.env --import tsx src/worker.ts",
     "test": "tsx --test src/*.test.ts",
     "typecheck": "tsc --noEmit",
     "install-browser": "playwright install firefox"

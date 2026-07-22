@@ -1,0 +1,14 @@
+{
+  "jobId": "test-001",
+  "taxon": {
+    "fauneFranceId": "383",
+    "scientificName": "Tichodroma muraria",
+    "vernacularName": "Tichodrome échelette",
+    "rank": "species"
+  },
+  "dateFrom": "2026-06-22",
+  "dateTo": "2026-07-22",
+  "departments": ["09"],
+  "maxPages": 100,
+  "pagePauseMs": 1500
+}

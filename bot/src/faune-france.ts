@@ -1,11 +1,12 @@
 import type { Page } from "playwright";
-import { buildDepartmentMask, toFrenchDate, type SearchConfig } from "./config.js";
+import { createHash } from "node:crypto";
+import { buildDepartmentMask, toFrenchDate } from "./config.js";
 
 export const BASE_URL = "https://www.faune-france.org/";
 export const SEARCH_URL = "https://www.faune-france.org/index.php?m_id=94";
 export const RESULTS_URL = "https://www.faune-france.org/index.php?m_id=1351&content=observations_by_page";
-export const MAX_PAGES = 2;
 export const REQUEST_TIMEOUT_MS = 45_000;
+export const LOGOUT_MARKER_SELECTOR = 'a[href*="logout=1"], a[href*="logout"], [data-action="logout"]';
 
 const HTML_HEADERS = {
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -26,14 +27,21 @@ export interface RawNetworkResponse {
   body: string;
 }
 
+export interface SearchParameterInput {
+  taxon: { fauneFranceId: string };
+  dateFrom: string;
+  dateTo: string;
+  departments: string[];
+}
+
 export class SessionExpiredError extends Error {
   constructor(details?: string) {
-    super(`Session Faune-France expirée ou absente. Lancez « npm run login », connectez-vous manuellement, puis relancez « npm run test-search ».${details ? ` (${details})` : ""}`);
+    super(`Session Faune-France expirée ou absente. Lancez « npm run login », connectez-vous manuellement, puis relancez la recherche.${details ? ` (${details})` : ""}`);
     this.name = "SessionExpiredError";
   }
 }
 
-export function buildSearchParameters(config: SearchConfig, page: number): URLSearchParams {
+export function buildSearchParameters(config: SearchParameterInput, page: number): URLSearchParams {
   return new URLSearchParams({
     backlink: "skip",
     p_c: "duration",
@@ -44,7 +52,7 @@ export function buildSearchParameters(config: SearchConfig, page: number): URLSe
     sp_DTo: toFrenchDate(config.dateTo),
     sp_DCa: "0",
     sp_SChoice: "species",
-    sp_S: "383",
+    sp_S: config.taxon.fauneFranceId,
     sp_PChoice: "canton",
     sp_cC: buildDepartmentMask(config.departments),
     sp_project: "0",
@@ -108,12 +116,34 @@ export function looksLikeLoginResponse(response: RawNetworkResponse): boolean {
     return false;
   }
   const hasCredentialsForm = body.includes('type="password"') &&
-    (body.includes('name="email"') || body.includes('type="email"'));
-  const isDedicatedLoginPage =
-    body.includes("pour accéder à la page demandée") ||
-    body.includes("pour acc&eacute;der &agrave; la page demand&eacute;e") ||
-    /<title[^>]*>\s*login\s*<\/title>/i.test(body);
-  return hasCredentialsForm && isDedicatedLoginPage;
+    (body.includes('name="username"') || body.includes('id="loginemail"') || body.includes('name="email"') || body.includes('type="email"'));
+  return hasCredentialsForm;
+}
+
+export async function assertLiveAuthenticatedSession(page: Page, step: string): Promise<void> {
+  const probe = await page.evaluate(async ({ baseUrl, logoutSelector, timeoutMs }) => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await window.fetch(baseUrl, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        signal: controller.signal
+      });
+      const document = new DOMParser().parseFromString(await response.text(), "text/html");
+      return { status: response.status, authenticated: document.querySelector(logoutSelector) !== null };
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }, { baseUrl: BASE_URL, logoutSelector: LOGOUT_MARKER_SELECTOR, timeoutMs: REQUEST_TIMEOUT_MS });
+
+  if (probe.status !== 200) {
+    throw new Error(`${step} : impossible de contrôler la session (HTTP ${probe.status}).`);
+  }
+  if (!probe.authenticated) {
+    throw new SessionExpiredError(step);
+  }
 }
 
 export function assertSuccessfulResponse(response: RawNetworkResponse, step: string): void {
@@ -125,44 +155,69 @@ export function assertSuccessfulResponse(response: RawNetworkResponse, step: str
   }
 }
 
-function valueAtPath(object: unknown, path: string): unknown {
-  return path.split(".").reduce<unknown>((value, key) => {
-    if (!value || typeof value !== "object") {
-      return undefined;
-    }
-    return (value as Record<string, unknown>)[key];
-  }, object);
+export type PaginationStopReason = "finished" | "empty-page" | "repeated-page" | "safety-limit";
+
+export interface DataIsFinishedState {
+  value: boolean | number | string;
+  type: "boolean" | "number" | "string";
+  finished: boolean;
 }
 
-export function hasNextPage(payload: unknown, currentPage: number): boolean {
-  const booleanPaths = ["has_next", "hasNext", "has_more", "hasMore", "pagination.has_next", "pagination.hasNext"];
-  for (const path of booleanPaths) {
-    const value = valueAtPath(payload, path);
-    if (typeof value === "boolean") {
-      return value;
-    }
-    if (value === 0 || value === 1 || value === "0" || value === "1") {
-      return value === 1 || value === "1";
-    }
-  }
+export interface PaginationDecision {
+  continue: boolean;
+  stopReason: PaginationStopReason | null;
+  truncatedBySafetyLimit: boolean;
+  repeated: boolean;
+  dataIsFinished: DataIsFinishedState;
+  fingerprint: string;
+}
 
-  const totalPaths = ["total_pages", "totalPages", "nb_pages", "number_pages", "pagination.total_pages", "pagination.totalPages", "pager.total_pages"];
-  for (const path of totalPaths) {
-    const total = Number(valueAtPath(payload, path));
-    if (Number.isInteger(total) && total > 0) {
-      return currentPage < total;
+export function parseDataIsFinished(value: unknown): DataIsFinishedState {
+  if (typeof value === "boolean") {
+    return { value, type: "boolean", finished: value };
+  }
+  if (typeof value === "number" && (value === 0 || value === 1)) {
+    return { value, type: "number", finished: value === 1 };
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "0" || normalized === "false") {
+      return { value, type: "string", finished: false };
+    }
+    if (normalized === "1" || normalized === "true") {
+      return { value, type: "string", finished: true };
     }
   }
+  throw new Error(`Valeur data_is_finished inattendue : ${JSON.stringify(value)} (${typeof value}).`);
+}
 
-  const nextPaths = ["next_page", "nextPage", "pagination.next_page", "pagination.nextPage"];
-  for (const path of nextPaths) {
-    const next = valueAtPath(payload, path);
-    if (next !== undefined && next !== null && next !== false && next !== "") {
-      const nextPage = Number(next);
-      return !Number.isFinite(nextPage) || nextPage > currentPage;
-    }
+export function fingerprintPageData(data: unknown[]): string {
+  return createHash("sha256").update(JSON.stringify(data)).digest("hex");
+}
+
+export function decidePagination(
+  payload: { data: unknown[]; data_is_finished?: unknown },
+  currentPage: number,
+  maxPages: number,
+  previousFingerprint: string | null
+): PaginationDecision {
+  const dataIsFinished = parseDataIsFinished(payload.data_is_finished);
+  const fingerprint = fingerprintPageData(payload.data);
+  const repeated = payload.data.length > 0 && previousFingerprint === fingerprint;
+
+  if (payload.data.length === 0) {
+    return { continue: false, stopReason: "empty-page", truncatedBySafetyLimit: false, repeated: false, dataIsFinished, fingerprint };
   }
-  return false;
+  if (repeated) {
+    return { continue: false, stopReason: "repeated-page", truncatedBySafetyLimit: false, repeated: true, dataIsFinished, fingerprint };
+  }
+  if (dataIsFinished.finished) {
+    return { continue: false, stopReason: "finished", truncatedBySafetyLimit: false, repeated: false, dataIsFinished, fingerprint };
+  }
+  if (currentPage >= maxPages) {
+    return { continue: false, stopReason: "safety-limit", truncatedBySafetyLimit: true, repeated: false, dataIsFinished, fingerprint };
+  }
+  return { continue: true, stopReason: null, truncatedBySafetyLimit: false, repeated: false, dataIsFinished, fingerprint };
 }
 
 export async function pageClearlyShowsLogin(page: Page): Promise<boolean> {
@@ -172,8 +227,8 @@ export async function pageClearlyShowsLogin(page: Page): Promise<boolean> {
       return true;
     }
     const hasLogout = document.querySelector('a[href*="logout=1"], a[href*="logout"], [data-action="logout"]') !== null;
-    const hasPassword = document.querySelector('input[type="password"], input[name="password"]') !== null;
-    const hasEmail = document.querySelector('input[type="email"], input[name="email"]') !== null;
+    const hasPassword = document.querySelector('input[type="password"], input[name="PASSWORD"], input[name="password"]') !== null;
+    const hasEmail = document.querySelector('#loginemail, input[name="USERNAME"], input[type="email"], input[name="email"]') !== null;
     return !hasLogout && hasPassword && hasEmail;
   });
 }

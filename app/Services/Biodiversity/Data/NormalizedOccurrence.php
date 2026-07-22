@@ -33,6 +33,8 @@ final readonly class NormalizedOccurrence implements JsonSerializable
         public ?string $sourceUrl,
         public array $media,
         public array $rawData,
+        public ?string $locationName = null,
+        public ?string $remarks = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -60,6 +62,8 @@ final readonly class NormalizedOccurrence implements JsonSerializable
             'source_url' => $this->sourceUrl,
             'media' => $this->media,
             'raw_data' => $this->rawData,
+            'location_name' => $this->locationName,
+            'remarks' => $this->remarks,
         ];
     }
 }

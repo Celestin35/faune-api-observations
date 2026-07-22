@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExternalFetchJobController;
+use App\Http\Controllers\ExternalFetchJobResultController;
 use App\Http\Controllers\FauneFranceOccurrenceController;
 use App\Http\Controllers\GeographicAreaController;
 use App\Http\Controllers\ImportController;
@@ -27,3 +29,12 @@ Route::post('/monitoring/{monitoring}/sync', [MonitoringRuleController::class, '
 Route::apiResource('/monitoring', MonitoringRuleController::class)->parameters(['monitoring' => 'monitoring']);
 Route::get('/panels/feed', PanelFeedController::class);
 Route::post('/biodiversity/faune-france/occurrences', FauneFranceOccurrenceController::class);
+
+Route::prefix('/bot')->middleware('faune-france.bot')->group(function (): void {
+    Route::get('/jobs/next', [ExternalFetchJobController::class, 'next']);
+    Route::post('/jobs/{job}/claim', [ExternalFetchJobController::class, 'claim']);
+    Route::post('/jobs/{job}/results', ExternalFetchJobResultController::class);
+    Route::post('/jobs/{job}/complete', [ExternalFetchJobController::class, 'complete']);
+    Route::post('/jobs/{job}/fail', [ExternalFetchJobController::class, 'fail']);
+    Route::post('/heartbeat', [ExternalFetchJobController::class, 'heartbeat']);
+});
