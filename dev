@@ -1,5 +1,83 @@
 #!/usr/bin/env sh
 set -eu
 
-docker compose up -d postgres app queue scheduler
-docker compose ps
+PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+BOT_DIR="$PROJECT_DIR/bot"
+BOT_UNIT="observations-faune-worker.service"
+
+worker_pid() {
+    systemctl --user is-active --quiet "$BOT_UNIT" || return 1
+    pid=$(systemctl --user show "$BOT_UNIT" --property=MainPID --value)
+    [ "$pid" -gt 0 ] 2>/dev/null || return 1
+    printf '%s\n' "$pid"
+}
+
+start_worker() {
+    if pid=$(worker_pid); then
+        printf 'Worker Faune-France déjà actif (PID %s).\n' "$pid"
+        return
+    fi
+
+    if [ ! -f "$BOT_DIR/.env" ]; then
+        printf 'Worker Faune-France non lancé : bot/.env est absent.\n' >&2
+        return
+    fi
+    if [ ! -d "$BOT_DIR/node_modules/tsx" ]; then
+        printf 'Worker Faune-France non lancé : exécutez npm install dans bot/.\n' >&2
+        return
+    fi
+
+    systemctl --user reset-failed "$BOT_UNIT" 2>/dev/null || true
+    systemd-run --user \
+        --unit="${BOT_UNIT%.service}" \
+        --collect \
+        --description="Worker Playwright Faune-France (observations-api)" \
+        --working-directory="$BOT_DIR" \
+        --property=Restart=on-failure \
+        --property=RestartSec=5 \
+        "$(command -v node)" --env-file-if-exists=.env --import tsx src/worker.ts >/dev/null
+    sleep 1
+    if pid=$(worker_pid); then
+        printf 'Worker Faune-France lancé (PID %s, logs : ./dev logs).\n' "$pid"
+    else
+        printf 'Le worker Faune-France n’a pas démarré. Consultez ./dev logs.\n' >&2
+        return 1
+    fi
+}
+
+stop_worker() {
+    if worker_pid >/dev/null; then
+        systemctl --user stop "$BOT_UNIT"
+        printf 'Worker Faune-France arrêté.\n'
+    fi
+}
+
+case "${1:-start}" in
+    start)
+        cd "$PROJECT_DIR"
+        docker compose up -d postgres app queue scheduler
+        start_worker
+        docker compose ps
+        ;;
+    stop)
+        stop_worker
+        cd "$PROJECT_DIR"
+        docker compose stop scheduler queue app postgres
+        ;;
+    status)
+        cd "$PROJECT_DIR"
+        docker compose ps
+        if pid=$(worker_pid); then
+            printf 'Worker Faune-France : actif (PID %s).\n' "$pid"
+        else
+            printf 'Worker Faune-France : arrêté.\n'
+        fi
+        ;;
+    logs)
+        journalctl --user --unit="$BOT_UNIT" --follow --lines=100
+        ;;
+    *)
+        printf 'Usage : ./dev [start|stop|status|logs]\n' >&2
+        exit 2
+        ;;
+esac
