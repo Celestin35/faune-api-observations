@@ -23,7 +23,7 @@ final class ExternalFetchJobResultController
         $validated = $request->validate([
             'batchNumber' => ['required', 'integer', 'min:1'],
             'isLastBatch' => ['required', 'boolean'],
-            'observations' => ['required', 'array', 'max:100'],
+            'observations' => ['present', 'array', 'max:100'],
             'observations.*' => ['array'],
         ]);
         $hash = hash('sha256', json_encode($validated, JSON_THROW_ON_ERROR));

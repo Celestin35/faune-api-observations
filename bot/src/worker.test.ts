@@ -3,7 +3,7 @@ import test from "node:test";
 import type { BatchResponse, WorkerApi, WorkerProgress } from "./api-client.js";
 import type { SearchJob } from "./job.js";
 import type { SearchRunResult } from "./search-runner.js";
-import { processNextJob } from "./worker-core.js";
+import { processNextJob, shouldWaitBeforeNextPoll } from "./worker-core.js";
 import { FauneFranceAuthError } from "./faune-france-auth.js";
 
 function job(): SearchJob {
@@ -109,6 +109,13 @@ test("le worker simulé reste inactif lorsque Laravel ne renvoie aucune tâche",
 
   assert.equal(result.status, "idle");
   assert.deepEqual(api.claimed, []);
+});
+
+test("le worker enchaîne immédiatement après une tâche et attend seulement lorsque la file est vide", () => {
+  assert.equal(shouldWaitBeforeNextPoll({ status: "completed", jobId: "42" }), false);
+  assert.equal(shouldWaitBeforeNextPoll({ status: "failed", jobId: "42" }), false);
+  assert.equal(shouldWaitBeforeNextPoll({ status: "idle" }), true);
+  assert.equal(shouldWaitBeforeNextPoll({ status: "claim-conflict", jobId: "42" }), true);
 });
 
 test("le worker signale l’échec sans arrêter définitivement son processus", async () => {

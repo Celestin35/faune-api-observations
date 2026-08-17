@@ -16,6 +16,10 @@ export interface WorkerIterationResult {
   counts?: BatchCounts;
 }
 
+export function shouldWaitBeforeNextPoll(result: WorkerIterationResult): boolean {
+  return result.status === "idle" || result.status === "claim-conflict";
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Erreur inconnue du worker.";
 }

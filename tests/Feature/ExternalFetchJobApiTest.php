@@ -158,6 +158,25 @@ final class ExternalFetchJobApiTest extends TestCase
     }
 
     #[Test]
+    public function an_empty_group_result_completes_normally_with_zero_observations(): void
+    {
+        $job = $this->claimedJob();
+
+        $this->bot()->postJson("/api/bot/jobs/{$job->id}/results", [
+            'batchNumber' => 1,
+            'isLastBatch' => true,
+            'observations' => [],
+        ])->assertOk()
+            ->assertJsonPath('counts.created', 0)
+            ->assertJsonPath('counts.updated', 0)
+            ->assertJsonPath('counts.unchanged', 0);
+        $this->bot()->postJson("/api/bot/jobs/{$job->id}/complete")->assertOk();
+
+        self::assertSame(ExternalFetchJob::STATUS_COMPLETED, $job->fresh()->status);
+        self::assertSame(0, ExternalFetchJobBatch::firstOrFail()->observation_count);
+    }
+
+    #[Test]
     public function faune_france_results_are_attached_to_the_originating_monitoring(): void
     {
         $monitoring = MonitoringRule::create([

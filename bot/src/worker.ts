@@ -1,6 +1,6 @@
 import { LaravelBotApi, loadWorkerConfig } from "./api-client.js";
 import { runSearchJob } from "./search-runner.js";
-import { processNextJob } from "./worker-core.js";
+import { processNextJob, shouldWaitBeforeNextPoll } from "./worker-core.js";
 
 async function main(): Promise<void> {
   const config = loadWorkerConfig();
@@ -17,8 +17,9 @@ async function main(): Promise<void> {
 
   console.log(`Worker Faune-France démarré. Laravel : ${config.apiUrl}. Intervalle : ${config.pollIntervalMs} ms.`);
   while (!stopping) {
+    let waitBeforeNextPoll = true;
     try {
-      await processNextJob(api, (job) => runSearchJob(job, true, async (progress) => {
+      const result = await processNextJob(api, (job) => runSearchJob(job, true, async (progress) => {
         try {
           await api.heartbeat(job.jobId, {
             stage: "fetching",
@@ -30,10 +31,11 @@ async function main(): Promise<void> {
           console.error(`Progression de la tâche ${job.jobId} non transmise : ${error instanceof Error ? error.message : "erreur inconnue"}.`);
         }
       }, false));
+      waitBeforeNextPoll = shouldWaitBeforeNextPoll(result);
     } catch (error) {
       console.error(`Erreur pendant le polling Laravel : ${error instanceof Error ? error.message : "erreur inconnue"}.`);
     }
-    if (!stopping) {
+    if (!stopping && waitBeforeNextPoll) {
       await new Promise<void>((resolve) => {
         const timeout = setTimeout(resolve, config.pollIntervalMs);
         wakeFromPause = () => {

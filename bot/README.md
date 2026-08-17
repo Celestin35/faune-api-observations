@@ -143,7 +143,7 @@ automatique en cas de crash. Son état et ses logs sont disponibles avec
 `npm run worker`, car les deux processus tenteraient d’utiliser le même profil
 Firefox persistant.
 
-Toutes les 30 secondes, le worker :
+Lorsqu’aucune tâche n’est disponible, le worker vérifie la file toutes les 30 secondes. Dès qu’il termine ou échoue une tâche, il demande immédiatement la suivante, sans attendre ce délai :
 
 1. demande la prochaine tâche Faune-France à Laravel ;
 2. la réserve atomiquement ;
