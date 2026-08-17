@@ -47,10 +47,11 @@ test("les paramètres utilisent le taxon fourni et le numéro de page", () => {
   });
   const parameters = buildSearchParameters({
     ...config,
-    taxon: { fauneFranceId: "9999" }
+    filter: { mode: "species", taxonomicGroupId: 3, fauneFranceId: "9999" }
   }, 2);
   assert.equal(parameters.get("sp_S"), "9999");
   assert.equal(parameters.get("sp_SChoice"), "species");
+  assert.equal(parameters.get("sp_tg"), "3");
   assert.equal(parameters.get("sp_DFrom"), "22.06.2026");
   assert.equal(parameters.get("sp_DTo"), "22.07.2026");
   assert.equal(parameters.get("mp_current_page"), "2");
@@ -59,7 +60,7 @@ test("les paramètres utilisent le taxon fourni et le numéro de page", () => {
 
 test("un point et un rayon utilisent le polygone WKT natif de Faune-France", () => {
   const parameters = buildSearchParameters({
-    taxon: { fauneFranceId: "383" },
+    filter: { mode: "species", taxonomicGroupId: 1, fauneFranceId: "383" },
     dateFrom: "2026-06-22",
     dateTo: "2026-07-22",
     zone: { type: "radius", latitude: 48.1173, longitude: -1.6778, radiusKm: 30 }
@@ -72,6 +73,19 @@ test("un point et un rayon utilisent le polygone WKT natif de Faune-France", () 
   assert.match(polygon, /^POLYGON\(\(-?\d+\.\d{7} -?\d+\.\d{7},/);
   assert.equal(coordinates.length, 65);
   assert.equal(coordinates[0], coordinates.at(-1));
+});
+
+test("un groupe demande toutes ses espèces sans envoyer sp_S", () => {
+  const parameters = buildSearchParameters({
+    filter: { mode: "group", taxonomicGroupId: 27 },
+    dateFrom: "2026-06-22",
+    dateTo: "2026-07-22",
+    departments: ["35"]
+  }, 1);
+
+  assert.equal(parameters.get("sp_tg"), "27");
+  assert.equal(parameters.get("sp_SChoice"), "all");
+  assert.equal(parameters.has("sp_S"), false);
 });
 
 test("le générateur de cercle refuse les coordonnées et rayons invalides", () => {

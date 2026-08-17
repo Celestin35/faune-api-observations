@@ -46,14 +46,14 @@ final class ExternalFetchJobResultController
                 return response()->json(['counts' => $existing->counts, 'replayed' => true]);
             }
 
-            $taxon = $lockedJob->payload['taxon'] ?? null;
-            if (! is_array($taxon)) {
-                throw ValidationException::withMessages(['job.payload.taxon' => 'Le taxon de la tâche est invalide.']);
+            $filter = $lockedJob->payload['filter'] ?? $lockedJob->payload['taxon'] ?? null;
+            if (! is_array($filter)) {
+                throw ValidationException::withMessages(['job.payload.filter' => 'Le filtre taxonomique de la tâche est invalide.']);
             }
             $normalized = [];
             foreach ($validated['observations'] as $index => $observation) {
                 try {
-                    $normalized[] = $normalizer->normalize($observation, $taxon);
+                    $normalized[] = $normalizer->normalize($observation, $filter);
                 } catch (\Throwable $exception) {
                     throw ValidationException::withMessages(["observations.{$index}" => $exception->getMessage()]);
                 }

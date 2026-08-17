@@ -15,7 +15,7 @@ Nuxt utilise les composants communs `TaxonPicker`, `DateRangePicker`, `ZonePicke
 
 ## Chemins d’import
 
-`ImportCoordinator` crée un `import_job` par source.
+`ImportCoordinator` crée un `import_job` par source, ou un par groupe Faune-France lorsque la demande couvre plusieurs groupes.
 
 ```text
 GBIF         -> ImportObservationsJob -> connecteur HTTP -> normalisation -> persistance
@@ -23,7 +23,7 @@ iNaturalist  -> ImportObservationsJob -> connecteur HTTP -> normalisation -> per
 Faune-France -> external_fetch_job lié -> worker Playwright -> lots de 100 -> normalisation -> persistance
 ```
 
-Pour Faune-France, l’import ponctuel exige une espèce exacte, un mapping `faune_france` préféré et validé, une période valide et soit des départements du portail métropolitain, soit un point/rayon métropolitain. Le rayon est transmis au bot, qui construit le polygone WKT natif ; il n’est pas converti en départements.
+Pour Faune-France, l’import ponctuel accepte une espèce exacte avec un mapping `faune_france` préféré et validé, un groupe TAXREF pris en charge, ou l’absence de taxon pour tous les animaux. Le portail n’ayant pas de requête globale unique, ce dernier cas crée 26 tâches, une pour chaque groupe Faune-France. Chaque résultat de groupe conserve sa propre espèce grâce à `species_array`. La période doit être valide et la zone peut être la France métropolitaine entière, des départements du portail métropolitain ou un point/rayon métropolitain. Le rayon est transmis au bot, qui construit le polygone WKT natif ; il n’est pas converti en départements.
 
 Faune-France ne fournit pas d’estimation légère. L’API renvoie donc :
 

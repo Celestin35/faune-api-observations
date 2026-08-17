@@ -155,7 +155,14 @@ try {
       </div>
 
       <ZonePicker v-model="zone" :areas="areas" :loading-areas="loadingAreas" />
-      <SourcePicker v-model="sources" :taxon="selectedTaxon" :taxon-scope="taxonScope" :zone="zone" :areas="areas" />
+      <SourcePicker
+        v-model="sources"
+        :taxon="selectedTaxon"
+        :taxon-scope="taxonScope"
+        :zone="zone"
+        :areas="areas"
+        allow-broad-faune-france
+      />
 
       <div class="actions">
         <button :disabled="busy" @click="runEstimate">{{ busy ? 'Traitement…' : 'Estimer' }}</button>

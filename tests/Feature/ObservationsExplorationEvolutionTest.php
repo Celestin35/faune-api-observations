@@ -9,6 +9,7 @@ use App\Models\Observation;
 use App\Models\ObservationSource;
 use App\Models\Taxon;
 use App\Models\TaxonSourceMapping;
+use App\Services\Biodiversity\FauneFrance\FauneFranceTaxonomicGroups;
 use App\Services\Biodiversity\Inbound\FauneFranceRawObservationNormalizer;
 use App\Services\Biodiversity\OccurrencePersister;
 use App\Services\Biodiversity\SearchDefinitionFactory;
@@ -133,7 +134,8 @@ final class ObservationsExplorationEvolutionTest extends TestCase
 
         $import = ImportJob::findOrFail($response->json('data.0.id'));
         $external = ExternalFetchJob::where('import_job_id', $import->id)->firstOrFail();
-        self::assertSame('383', $external->payload['taxon']['fauneFranceId']);
+        self::assertSame('species', $external->payload['filter']['mode']);
+        self::assertSame('383', $external->payload['filter']['fauneFranceId']);
         self::assertSame('radius', $external->payload['zone']['type']);
         self::assertSame($import->id, $external->import_job_id);
 
@@ -143,17 +145,75 @@ final class ObservationsExplorationEvolutionTest extends TestCase
     }
 
     #[Test]
-    public function faune_france_rejects_a_subtree_or_an_unmapped_species(): void
+    public function faune_france_accepts_supported_groups_but_rejects_an_unmapped_species(): void
     {
-        $mapped = $this->mappedSpecies();
-        $this->postJson('/api/searches/estimate', [
-            ...$this->fauneSearchPayload($mapped),
+        Queue::fake();
+        $birds = Taxon::create([
+            'scientific_name' => 'Aves',
+            'preferred_french_name' => 'Oiseaux',
+            'rank' => 'class',
+        ]);
+        $payload = [
+            ...$this->fauneSearchPayload($birds),
             'taxon_scope' => 'subtree',
-        ])->assertUnprocessable()->assertJsonValidationErrors('sources');
+        ];
+        $this->postJson('/api/searches/estimate', $payload)
+            ->assertOk()
+            ->assertJsonPath('external.faune-france.available', true);
+        $this->postJson('/api/imports', $payload + ['confirmed' => true])
+            ->assertAccepted()
+            ->assertJsonCount(1, 'data');
+
+        $external = ExternalFetchJob::firstOrFail();
+        self::assertSame([
+            'mode' => 'group',
+            'taxonomicGroupId' => 1,
+            'label' => 'Oiseaux',
+        ], $external->payload['filter']);
+        self::assertNull($external->taxon_source_mapping_id);
+
+        $groups = app(FauneFranceTaxonomicGroups::class);
+        self::assertCount(26, $groups->forTaxon(new Taxon(['scientific_name' => 'Animalia'])));
+        self::assertSame(
+            [8, 9, 10, 11, 12, 18, 19, 20, 21, 22, 25, 26, 43, 51],
+            collect($groups->forTaxon(new Taxon(['scientific_name' => 'Insecta'])))->pluck('id')->all(),
+        );
 
         $unmapped = Taxon::create(['scientific_name' => 'Corvus corone', 'rank' => 'species']);
         $this->postJson('/api/searches/estimate', $this->fauneSearchPayload($unmapped))
             ->assertUnprocessable()->assertJsonValidationErrors('sources');
+    }
+
+    #[Test]
+    public function faune_france_searches_all_animals_through_its_26_taxonomic_groups(): void
+    {
+        Queue::fake();
+        $payload = [
+            'taxon_scope' => 'subtree',
+            'date_from' => '2026-07-01',
+            'date_to' => '2026-07-23',
+            'sources' => ['faune-france'],
+            'zone' => ['type' => 'radius', 'address' => 'Rennes', 'latitude' => 48.1, 'longitude' => -1.6, 'radius_km' => 30],
+        ];
+
+        $this->postJson('/api/searches/estimate', $payload)
+            ->assertOk()
+            ->assertJsonPath('external.faune-france.available', true);
+        $this->postJson('/api/imports', $payload + ['confirmed' => true])
+            ->assertAccepted()
+            ->assertJsonCount(26, 'data');
+
+        self::assertSame(26, ImportJob::count());
+        self::assertSame(26, ExternalFetchJob::count());
+        self::assertSame(
+            [1, 3, 4, 6, 7, 8, 9, 10, 11, 12, 18, 19, 20, 21, 22, 25, 26, 27, 28, 29, 30, 31, 32, 33, 43, 51],
+            ExternalFetchJob::query()->orderBy('id')->get()
+                ->map(fn (ExternalFetchJob $job): int => $job->payload['filter']['taxonomicGroupId'])
+                ->all(),
+        );
+        self::assertTrue(ExternalFetchJob::all()->every(
+            fn (ExternalFetchJob $job): bool => $job->payload['filter']['mode'] === 'group'
+        ));
     }
 
     #[Test]

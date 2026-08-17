@@ -22,7 +22,8 @@ function validJob(): Record<string, unknown> {
 test("une tâche valide est acceptée sans modifier son taxon", () => {
   const job = validateSearchJob(validJob());
   assert.equal(job.jobId, "test-001");
-  assert.equal(job.taxon.fauneFranceId, "383");
+  assert.equal(job.filter.mode, "species");
+  assert.equal(job.filter.mode === "species" ? job.filter.fauneFranceId : null, "383");
   assert.deepEqual(job.departments, ["09"]);
 });
 
@@ -66,6 +67,14 @@ test("un identifiant Faune-France absent est refusé", () => {
   const input = validJob();
   delete (input.taxon as Record<string, unknown>).fauneFranceId;
   assert.throws(() => validateSearchJob(input), /fauneFranceId/);
+});
+
+test("une recherche de toutes les espèces d’un groupe est acceptée", () => {
+  const input = validJob();
+  delete input.taxon;
+  input.filter = { mode: "group", taxonomicGroupId: 27, label: "Araignées" };
+  const job = validateSearchJob(input);
+  assert.deepEqual(job.filter, { mode: "group", taxonomicGroupId: 27, label: "Araignées" });
 });
 
 test("des dates invalides sont refusées", () => {

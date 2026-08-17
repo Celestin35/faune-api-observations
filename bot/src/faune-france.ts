@@ -28,7 +28,9 @@ export interface RawNetworkResponse {
 }
 
 export interface SearchParameterInput {
-  taxon: { fauneFranceId: string };
+  filter:
+    | { mode: "species"; taxonomicGroupId: number; fauneFranceId: string }
+    | { mode: "group"; taxonomicGroupId: number };
   dateFrom: string;
   dateTo: string;
   departments?: string[];
@@ -86,17 +88,20 @@ export function buildSearchParameters(config: SearchParameterInput, page: number
         sp_cC: buildDepartmentMask(config.departments ?? [])
       };
 
+  const taxonParameters: Record<string, string> = config.filter.mode === "species"
+    ? { sp_SChoice: "species", sp_S: config.filter.fauneFranceId }
+    : { sp_SChoice: "all" };
+
   return new URLSearchParams({
     backlink: "skip",
     p_c: "duration",
     p_cc: "-",
-    sp_tg: "1",
+    sp_tg: String(config.filter.taxonomicGroupId),
     sp_DChoice: "range",
     sp_DFrom: toFrenchDate(config.dateFrom),
     sp_DTo: toFrenchDate(config.dateTo),
     sp_DCa: "0",
-    sp_SChoice: "species",
-    sp_S: config.taxon.fauneFranceId,
+    ...taxonParameters,
     ...spatialParameters,
     sp_project: "0",
     sp_FChoice: "list",

@@ -4,12 +4,16 @@ namespace App\Services\Biodiversity;
 
 use App\Models\Taxon;
 use App\Models\TaxonomicReferenceVersion;
+use App\Services\Biodiversity\FauneFrance\FauneFranceTaxonomicGroups;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 final class TaxonSearchService
 {
-    public function __construct(private readonly TaxonNameNormalizer $normalizer) {}
+    public function __construct(
+        private readonly TaxonNameNormalizer $normalizer,
+        private readonly FauneFranceTaxonomicGroups $fauneFranceGroups,
+    ) {}
 
     /** @return list<array<string, mixed>> */
     public function search(string $query, int $limit = 10): array
@@ -113,8 +117,11 @@ final class TaxonSearchService
             ->where('mapping_status', 'validated')->where('is_preferred', true)->whereNull('valid_to')->get(['taxon_id', 'source']);
         $mappingSources = $mappingRows->groupBy('taxon_id')->map(fn (Collection $rows) => $rows->pluck('source')->all());
 
-        return $matches->map(function ($match) use ($lineages, $mappingSources, $version): array {
+        $taxa = Taxon::query()->whereIn('id', $ids)->get()->keyBy('id');
+
+        return $matches->map(function ($match) use ($lineages, $mappingSources, $taxa, $version): array {
             $sources = $mappingSources[(int) $match->taxon_id] ?? [];
+            $taxon = $taxa[(int) $match->taxon_id];
 
             return [
                 'id' => (int) $match->taxon_id,
@@ -129,7 +136,8 @@ final class TaxonSearchService
                 'sourceAvailability' => [
                     'gbif' => true,
                     'inaturalist' => true,
-                    'fauneFrance' => $match->rank_code === 'species' && in_array('faune_france', $sources, true),
+                    'fauneFrance' => ($match->rank_code === 'species' && in_array('faune_france', $sources, true))
+                        || $this->fauneFranceGroups->supports($taxon),
                 ],
             ];
         })->all();

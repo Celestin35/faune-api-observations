@@ -2,6 +2,7 @@
 interface ImportItem {
   id: number
   source: string
+  taxon_label_snapshot?: string | null
   taxon?: { scientific_name: string; vernacular_name?: string | null; preferred_french_name?: string | null } | null
   date_from: string
   date_to: string
@@ -113,7 +114,7 @@ onBeforeUnmount(() => clearInterval(interval))
       <article v-for="item in imports" :key="item.id" class="card">
         <div class="page-heading">
           <div>
-            <strong>#{{ item.id }} · {{ item.taxon?.preferred_french_name || item.taxon?.vernacular_name || item.taxon?.scientific_name || 'Tous les animaux' }}</strong>
+            <strong>#{{ item.id }} · {{ item.taxon_label_snapshot || item.taxon?.preferred_french_name || item.taxon?.vernacular_name || item.taxon?.scientific_name || 'Tous les animaux' }}</strong>
             <p><span class="badge">{{ item.source }}</span> {{ formatDate(item.date_from) }} → {{ formatDate(item.date_to) }}</p>
           </div>
           <span :class="`status-${item.status}`">{{ statusLabels[item.status] || item.status }}</span>

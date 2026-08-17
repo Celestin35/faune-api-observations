@@ -6,11 +6,13 @@ async function main(): Promise<void> {
   const config = await loadConfig();
   const legacyJob: SearchJob = {
     jobId: "test-search",
-    taxon: {
+    filter: {
+      mode: "species",
+      taxonomicGroupId: 1,
       fauneFranceId: "383",
       scientificName: "Tichodroma muraria",
       vernacularName: "Tichodrome échelette",
-      rank: "species"
+      label: "Tichodrome échelette"
     },
     dateFrom: config.dateFrom,
     dateTo: config.dateTo,

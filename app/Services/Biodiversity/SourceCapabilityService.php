@@ -4,10 +4,13 @@ namespace App\Services\Biodiversity;
 
 use App\Models\GeographicArea;
 use App\Models\Taxon;
+use App\Services\Biodiversity\FauneFrance\FauneFranceTaxonomicGroups;
 use Illuminate\Validation\ValidationException;
 
 final class SourceCapabilityService
 {
+    public function __construct(private readonly FauneFranceTaxonomicGroups $groups) {}
+
     /**
      * @param  array<string, mixed>  $zone
      * @return array{available: bool, estimable: bool, reason: string|null}
@@ -20,18 +23,19 @@ final class SourceCapabilityService
         if ($source !== 'faune-france') {
             return ['available' => false, 'estimable' => false, 'reason' => 'Cette source n’est pas prise en charge.'];
         }
-        if ($taxon === null) {
-            return ['available' => false, 'estimable' => false, 'reason' => 'Sélectionnez une espèce pour utiliser Faune-France.'];
-        }
-        if (($taxon->rank_code ?: $taxon->rank) !== 'species') {
-            return ['available' => false, 'estimable' => false, 'reason' => 'Faune-France accepte actuellement uniquement les taxons de rang espèce.'];
-        }
-        if ($scope !== 'exact') {
-            return ['available' => false, 'estimable' => false, 'reason' => 'Faune-France accepte uniquement une espèce exacte.'];
-        }
-        if (! $taxon->mappings()->where('source', 'faune_france')->where('mapping_status', 'validated')
-            ->where('is_preferred', true)->whereNull('valid_to')->exists()) {
-            return ['available' => false, 'estimable' => false, 'reason' => 'Ce taxon ne dispose pas encore d’un identifiant Faune-France validé.'];
+        if ($taxon !== null) {
+            $rank = $taxon->rank_code ?: $taxon->rank;
+            if ($rank === 'species') {
+                if ($scope !== 'exact') {
+                    return ['available' => false, 'estimable' => false, 'reason' => 'Une espèce Faune-France doit être recherchée avec la portée exacte.'];
+                }
+                if (! $taxon->mappings()->where('source', 'faune_france')->where('mapping_status', 'validated')
+                    ->where('is_preferred', true)->whereNull('valid_to')->exists()) {
+                    return ['available' => false, 'estimable' => false, 'reason' => 'Cette espèce ne dispose pas encore d’un identifiant Faune-France validé.'];
+                }
+            } elseif ($scope !== 'subtree' || ! $this->groups->supports($taxon)) {
+                return ['available' => false, 'estimable' => false, 'reason' => 'Ce taxon ne correspond pas à un groupe de recherche Faune-France pris en charge.'];
+            }
         }
 
         if (($zone['type'] ?? null) === 'radius') {
@@ -57,6 +61,12 @@ final class SourceCapabilityService
             }
         }
 
+        return $this->available();
+    }
+
+    /** @return array{available: bool, estimable: bool, reason: string} */
+    private function available(): array
+    {
         return [
             'available' => true,
             'estimable' => false,

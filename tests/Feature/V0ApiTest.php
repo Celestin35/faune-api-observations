@@ -216,7 +216,8 @@ final class V0ApiTest extends TestCase
         $job = ExternalFetchJob::firstOrFail();
         self::assertSame($id, $job->monitoring_rule_id);
         self::assertSame(['09', '22'], $job->payload['departments']);
-        self::assertSame('383', $job->payload['taxon']['fauneFranceId']);
+        self::assertSame('species', $job->payload['filter']['mode']);
+        self::assertSame('383', $job->payload['filter']['fauneFranceId']);
         Queue::assertNothingPushed();
 
         $payload['zone']['department_codes'] = ['971'];

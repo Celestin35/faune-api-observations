@@ -55,11 +55,13 @@ final class MonitoringSynchronizer
                 'source' => 'faune-france',
                 'status' => ExternalFetchJob::STATUS_PENDING,
                 'payload' => [
-                    'taxon' => [
+                    'filter' => [
+                        'mode' => 'species',
+                        'taxonomicGroupId' => (int) ($mapping->raw_data['taxonomic_group_id'] ?? 1),
                         'fauneFranceId' => $mapping->source_taxon_id,
                         'scientificName' => $rule->taxon->scientific_name,
-                        'vernacularName' => $rule->taxon->vernacular_name ?: $rule->taxon->scientific_name,
-                        'rank' => 'species',
+                        'vernacularName' => $rule->taxon->frenchName() ?: $rule->taxon->scientific_name,
+                        'label' => $rule->taxon->frenchName() ?: $rule->taxon->scientific_name,
                     ],
                     'dateFrom' => $from,
                     'dateTo' => $to,

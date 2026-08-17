@@ -2,16 +2,26 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { normalizeDepartmentCode, toFrenchDate, buildDepartmentMask } from "./config.js";
 
-export interface SearchTaxon {
+export interface SpeciesSearchFilter {
+  mode: "species";
+  taxonomicGroupId: number;
   fauneFranceId: string;
   scientificName: string;
   vernacularName: string;
-  rank: "species";
+  label: string;
 }
+
+export interface GroupSearchFilter {
+  mode: "group";
+  taxonomicGroupId: number;
+  label: string;
+}
+
+export type SearchFilter = SpeciesSearchFilter | GroupSearchFilter;
 
 interface SearchJobBase {
   jobId: string;
-  taxon: SearchTaxon;
+  filter: SearchFilter;
   dateFrom: string;
   dateTo: string;
   maxPages: number;
@@ -31,9 +41,11 @@ export type SearchJob = SearchJobBase & (
   | { departments?: never; zone: RadiusSearchZone }
 );
 
-const ROOT_KEYS = ["jobId", "taxon", "dateFrom", "dateTo", "departments", "zone", "maxPages", "pagePauseMs"] as const;
-const REQUIRED_ROOT_KEYS = ["jobId", "taxon", "dateFrom", "dateTo", "maxPages", "pagePauseMs"] as const;
+const ROOT_KEYS = ["jobId", "filter", "taxon", "dateFrom", "dateTo", "departments", "zone", "maxPages", "pagePauseMs"] as const;
+const REQUIRED_ROOT_KEYS = ["jobId", "dateFrom", "dateTo", "maxPages", "pagePauseMs"] as const;
 const TAXON_KEYS = ["fauneFranceId", "scientificName", "vernacularName", "rank"] as const;
+const SPECIES_FILTER_KEYS = ["mode", "taxonomicGroupId", "fauneFranceId", "scientificName", "vernacularName", "label"] as const;
+const GROUP_FILTER_KEYS = ["mode", "taxonomicGroupId", "label"] as const;
 const RADIUS_ZONE_KEYS = ["type", "latitude", "longitude", "radiusKm", "address"] as const;
 
 function asObject(value: unknown, label: string): Record<string, unknown> {
@@ -61,6 +73,60 @@ function requiredString(value: unknown, label: string): string {
   return value.trim();
 }
 
+function taxonomicGroupId(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 999) {
+    throw new Error("filter.taxonomicGroupId doit être un identifiant numérique positif.");
+  }
+  return value;
+}
+
+function validateFilter(input: Record<string, unknown>): SearchFilter {
+  if (Object.hasOwn(input, "filter") === Object.hasOwn(input, "taxon")) {
+    throw new Error("La tâche doit contenir exactement un filtre taxonomique : filter ou l’ancien champ taxon.");
+  }
+
+  if (Object.hasOwn(input, "taxon")) {
+    const legacy = asObject(input.taxon, "taxon");
+    assertExactKeys(legacy, TAXON_KEYS, "taxon");
+    const fauneFranceId = requiredString(legacy.fauneFranceId, "taxon.fauneFranceId");
+    if (!/^[1-9]\d*$/.test(fauneFranceId)) {
+      throw new Error("taxon.fauneFranceId doit être un identifiant numérique positif fourni explicitement.");
+    }
+    if (legacy.rank !== "species") {
+      throw new Error('taxon.rank doit valoir exactement "species".');
+    }
+    const scientificName = requiredString(legacy.scientificName, "taxon.scientificName");
+    const vernacularName = requiredString(legacy.vernacularName, "taxon.vernacularName");
+    return { mode: "species", taxonomicGroupId: 1, fauneFranceId, scientificName, vernacularName, label: vernacularName };
+  }
+
+  const filter = asObject(input.filter, "filter");
+  if (filter.mode === "species") {
+    assertExactKeys(filter, SPECIES_FILTER_KEYS, "filter");
+    const fauneFranceId = requiredString(filter.fauneFranceId, "filter.fauneFranceId");
+    if (!/^[1-9]\d*$/.test(fauneFranceId)) {
+      throw new Error("filter.fauneFranceId doit être un identifiant numérique positif fourni explicitement.");
+    }
+    return {
+      mode: "species",
+      taxonomicGroupId: taxonomicGroupId(filter.taxonomicGroupId),
+      fauneFranceId,
+      scientificName: requiredString(filter.scientificName, "filter.scientificName"),
+      vernacularName: requiredString(filter.vernacularName, "filter.vernacularName"),
+      label: requiredString(filter.label, "filter.label")
+    };
+  }
+  if (filter.mode === "group") {
+    assertExactKeys(filter, GROUP_FILTER_KEYS, "filter");
+    return {
+      mode: "group",
+      taxonomicGroupId: taxonomicGroupId(filter.taxonomicGroupId),
+      label: requiredString(filter.label, "filter.label")
+    };
+  }
+  throw new Error('filter.mode doit valoir "species" ou "group".');
+}
+
 export function validateSearchJob(value: unknown): SearchJob {
   const input = asObject(value, "La tâche");
   const missing = REQUIRED_ROOT_KEYS.filter((key) => !Object.hasOwn(input, key));
@@ -77,17 +143,7 @@ export function validateSearchJob(value: unknown): SearchJob {
     throw new Error("jobId doit contenir 1 à 100 caractères parmi lettres, chiffres, point, tiret et underscore, sans séparateur de chemin.");
   }
 
-  const taxonInput = asObject(input.taxon, "taxon");
-  assertExactKeys(taxonInput, TAXON_KEYS, "taxon");
-  const fauneFranceId = requiredString(taxonInput.fauneFranceId, "taxon.fauneFranceId");
-  if (!/^[1-9]\d*$/.test(fauneFranceId)) {
-    throw new Error("taxon.fauneFranceId doit être un identifiant numérique positif fourni explicitement.");
-  }
-  const scientificName = requiredString(taxonInput.scientificName, "taxon.scientificName");
-  const vernacularName = requiredString(taxonInput.vernacularName, "taxon.vernacularName");
-  if (taxonInput.rank !== "species") {
-    throw new Error('taxon.rank doit temporairement valoir exactement "species".');
-  }
+  const filter = validateFilter(input);
 
   if (typeof input.dateFrom !== "string" || typeof input.dateTo !== "string") {
     throw new Error("dateFrom et dateTo doivent être des chaînes au format YYYY-MM-DD.");
@@ -123,7 +179,7 @@ export function validateSearchJob(value: unknown): SearchJob {
 
   const common = {
     jobId,
-    taxon: { fauneFranceId, scientificName, vernacularName, rank: "species" as const },
+    filter,
     dateFrom: input.dateFrom,
     dateTo: input.dateTo,
     maxPages: input.maxPages,

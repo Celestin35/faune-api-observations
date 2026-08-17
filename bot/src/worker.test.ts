@@ -9,11 +9,13 @@ import { FauneFranceAuthError } from "./faune-france-auth.js";
 function job(): SearchJob {
   return {
     jobId: "42",
-    taxon: {
+    filter: {
+      mode: "species",
+      taxonomicGroupId: 1,
       fauneFranceId: "383",
       scientificName: "Tichodroma muraria",
       vernacularName: "Tichodrome échelette",
-      rank: "species"
+      label: "Tichodrome échelette"
     },
     dateFrom: "2026-06-22",
     dateTo: "2026-07-22",

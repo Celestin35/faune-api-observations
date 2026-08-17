@@ -152,7 +152,10 @@ export async function runSearchJob(
   const spatialDescription = job.zone
     ? `point ${job.zone.latitude}, ${job.zone.longitude}, rayon ${job.zone.radiusKm} km (polygone Faune-France)`
     : `départements ${job.departments.join(", ")}`;
-  console.log(`Recherche : ${job.taxon.vernacularName} (${job.taxon.scientificName}, sp_S=${job.taxon.fauneFranceId}), ${job.dateFrom} → ${job.dateTo}, ${spatialDescription}.`);
+  const taxonDescription = job.filter.mode === "species"
+    ? `${job.filter.vernacularName} (${job.filter.scientificName}, sp_S=${job.filter.fauneFranceId})`
+    : `${job.filter.label} (toutes les espèces, sp_tg=${job.filter.taxonomicGroupId})`;
+  console.log(`Recherche : ${taxonDescription}, ${job.dateFrom} → ${job.dateTo}, ${spatialDescription}.`);
 
   const context = await firefox.launchPersistentContext(PROFILE_DIR, { headless });
   try {
@@ -173,7 +176,7 @@ export async function runSearchJob(
     const summary = {
       jobId: job.jobId,
       searchedAt: new Date().toISOString(),
-      taxon: job.taxon,
+      filter: job.filter,
       filters: {
         dateFrom: job.dateFrom,
         dateTo: job.dateTo,

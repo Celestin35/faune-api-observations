@@ -101,6 +101,47 @@ final class ExternalFetchJobApiTest extends TestCase
     }
 
     #[Test]
+    public function a_group_search_imports_each_observations_actual_species(): void
+    {
+        $job = ExternalFetchJob::create([
+            'source' => 'faune-france',
+            'status' => ExternalFetchJob::STATUS_PENDING,
+            'payload' => [
+                'filter' => ['mode' => 'group', 'taxonomicGroupId' => 1, 'label' => 'Oiseaux'],
+                'dateFrom' => '2026-06-22',
+                'dateTo' => '2026-07-22',
+                'departments' => ['09'],
+                'maxPages' => 100,
+                'pagePauseMs' => 1500,
+            ],
+        ]);
+        $this->bot()->postJson("/api/bot/jobs/{$job->id}/claim")->assertOk();
+
+        $observations = [
+            $this->rawGroupObservation('1001', 'Rougegorge familier', 'Erithacus rubecula', 48.1, -1.6),
+            $this->rawGroupObservation('1002', 'Milan noir', 'Milvus migrans', 48.2, -1.7),
+        ];
+        $this->bot()->postJson("/api/bot/jobs/{$job->id}/results", [
+            'batchNumber' => 1,
+            'isLastBatch' => true,
+            'observations' => $observations,
+        ])->assertOk()->assertJsonPath('counts.created', 2);
+
+        self::assertSame(
+            ['Erithacus rubecula', 'Milvus migrans'],
+            Observation::query()->with('taxon')->orderBy('id')->get()->pluck('taxon.scientific_name')->all(),
+        );
+        self::assertSame(
+            ['Rougegorge familier', 'Milan noir'],
+            ObservationSource::query()->orderBy('id')->pluck('source_vernacular_name')->all(),
+        );
+        self::assertSame(
+            ['701', '727'],
+            ObservationSource::query()->orderBy('id')->pluck('source_taxon_id')->all(),
+        );
+    }
+
+    #[Test]
     public function resending_the_same_batch_does_not_duplicate_observations(): void
     {
         $job = $this->claimedJob();
@@ -248,6 +289,32 @@ final class ExternalFetchJobApiTest extends TestCase
                         'lat' => 45.1234567,
                         'lon' => 6.7654321,
                     ]],
+                ]],
+            ]],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function rawGroupObservation(string $sightingId, string $frenchName, string $scientificName, float $latitude, float $longitude): array
+    {
+        $speciesId = $scientificName === 'Erithacus rubecula' ? '701' : '727';
+
+        return [
+            'species_array' => [
+                'id' => $speciesId,
+                'name' => $frenchName,
+                'latin_name' => $scientificName,
+                'taxo_group' => 1,
+            ],
+            'listSubmenu' => ['title' => '<strong>Lieu test</strong>', 'href' => "/index.php?m_id=54&id={$sightingId}"],
+            'date_raw' => '2026-07-22T00:00:00+02:00',
+            'opt_observers' => [[
+                'opt_observer_info' => [[
+                    'id_sighting' => $sightingId,
+                    'timing' => '08:35',
+                    'count' => 1,
+                    'lat' => $latitude,
+                    'lon' => $longitude,
                 ]],
             ]],
         ];

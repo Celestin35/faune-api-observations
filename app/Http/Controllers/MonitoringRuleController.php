@@ -9,6 +9,7 @@ use App\Services\Biodiversity\SearchDefinitionFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final class MonitoringRuleController
 {
@@ -27,6 +28,14 @@ final class MonitoringRuleController
         $request->validate(['name' => ['required', 'string', 'max:255'], 'window_minutes' => ['required', 'integer', 'min:5'],
             'frequency_minutes' => ['required', 'integer', 'min:5'], 'is_active' => ['sometimes', 'boolean']]);
         $criteria = $factory->slidingCriteria($request->all());
+        if (in_array('faune-france', $criteria->sources, true)
+            && ($criteria->taxon === null
+                || ($criteria->taxon->rank_code ?: $criteria->taxon->rank) !== 'species'
+                || $criteria->taxonScope !== 'exact')) {
+            throw ValidationException::withMessages([
+                'sources' => 'Les recherches Faune-France par groupe ou tous les animaux sont disponibles dans Explorer, pas encore dans les surveillances.',
+            ]);
+        }
         $minimum = array_intersect(['gbif', 'faune-france'], $criteria->sources) ? 30 : 5;
         if ($request->integer('frequency_minutes') < $minimum) {
             return response()->json(['message' => "La fréquence minimale est de {$minimum} minutes pour ces sources."], 422);

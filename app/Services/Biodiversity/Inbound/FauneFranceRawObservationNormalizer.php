@@ -10,9 +10,9 @@ final class FauneFranceRawObservationNormalizer
 {
     /**
      * @param  array<string, mixed>  $raw
-     * @param  array{fauneFranceId: string, scientificName: string, vernacularName: string, rank: string}  $taxon
+     * @param  array<string, mixed>  $filter
      */
-    public function normalize(array $raw, array $taxon): NormalizedOccurrence
+    public function normalize(array $raw, array $filter): NormalizedOccurrence
     {
         $observerInfo = $this->observerInfo($raw);
         $sourceOccurrenceId = $this->text($observerInfo['id_sighting'] ?? $raw['id_sighting'] ?? $raw['id'] ?? null);
@@ -36,6 +36,7 @@ final class FauneFranceRawObservationNormalizer
         }
         $observedAt = $this->observedAt($raw, $observerInfo);
         $locationName = $this->stripMarkup($raw['listSubmenu']['title'] ?? $raw['location'] ?? null);
+        $taxon = $this->observationTaxon($raw, $filter);
 
         return new NormalizedOccurrence(
             source: 'faune-france',
@@ -70,6 +71,56 @@ final class FauneFranceRawObservationNormalizer
             sex: $this->stripMarkup($observerInfo['sex'] ?? $raw['sex'] ?? null),
             behavior: $this->stripMarkup($observerInfo['behavior'] ?? $raw['behavior'] ?? null),
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $raw
+     * @param  array<string, mixed>  $filter
+     * @return array{fauneFranceId: string, scientificName: string, vernacularName: string, rank: string}
+     */
+    private function observationTaxon(array $raw, array $filter): array
+    {
+        $source = is_array($raw['species_array'] ?? null) ? $raw['species_array'] : [];
+        $sourceId = $this->text($source['id'] ?? null);
+        $scientificName = $this->stripMarkup($source['latin_name'] ?? null);
+        $vernacularName = $this->stripMarkup($source['name'] ?? null);
+        $groupId = filter_var($source['taxo_group'] ?? null, FILTER_VALIDATE_INT);
+
+        if ($sourceId !== null && $scientificName !== null) {
+            $mode = (string) ($filter['mode'] ?? 'species');
+            if ($mode === 'species' && isset($filter['fauneFranceId'])
+                && $sourceId !== (string) $filter['fauneFranceId']) {
+                throw new InvalidArgumentException('L’observation retournée ne correspond pas à l’espèce Faune-France demandée.');
+            }
+            if ($mode === 'group' && isset($filter['taxonomicGroupId'])
+                && $groupId !== (int) $filter['taxonomicGroupId']) {
+                throw new InvalidArgumentException('L’observation retournée ne correspond pas au groupe Faune-France demandé.');
+            }
+
+            return [
+                'fauneFranceId' => $sourceId,
+                'scientificName' => $scientificName,
+                'vernacularName' => $vernacularName ?: $scientificName,
+                'rank' => 'species',
+            ];
+        }
+
+        if (($filter['mode'] ?? 'species') === 'group') {
+            throw new InvalidArgumentException('species_array est absent d’une observation issue d’une recherche par groupe.');
+        }
+
+        foreach (['fauneFranceId', 'scientificName'] as $required) {
+            if (! is_string($filter[$required] ?? null) || trim($filter[$required]) === '') {
+                throw new InvalidArgumentException("Le filtre Faune-France ne contient pas {$required}.");
+            }
+        }
+
+        return [
+            'fauneFranceId' => trim($filter['fauneFranceId']),
+            'scientificName' => trim($filter['scientificName']),
+            'vernacularName' => trim((string) ($filter['vernacularName'] ?? $filter['scientificName'])),
+            'rank' => 'species',
+        ];
     }
 
     /** @param array<string, mixed> $raw @return array<string, mixed> */

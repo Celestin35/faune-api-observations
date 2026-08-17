@@ -31,11 +31,13 @@ Un exemple prêt à l’emploi se trouve dans `bot/jobs/test-001.json` :
 ```json
 {
   "jobId": "test-001",
-  "taxon": {
+  "filter": {
+    "mode": "species",
+    "taxonomicGroupId": 1,
     "fauneFranceId": "383",
     "scientificName": "Tichodroma muraria",
     "vernacularName": "Tichodrome échelette",
-    "rank": "species"
+    "label": "Tichodrome échelette"
   },
   "dateFrom": "2026-06-22",
   "dateTo": "2026-07-22",
@@ -46,9 +48,11 @@ Un exemple prêt à l’emploi se trouve dans `bot/jobs/test-001.json` :
 ```
 
 - `jobId` identifie la tâche et son dossier de sortie. Il accepte uniquement lettres, chiffres, `.`, `_` et `-`, sans séparateur de chemin ;
-- `taxon.fauneFranceId` est obligatoire et doit contenir l’identifiant numérique Faune-France ;
+- `filter.mode` vaut `species` pour une espèce exacte ou `group` pour toutes les espèces d’un groupe ;
+- `filter.taxonomicGroupId` est l’identifiant du groupe du portail Faune-France ;
+- en mode `species`, `filter.fauneFranceId` est obligatoire et contient l’identifiant numérique Faune-France ;
 - les noms scientifique et vernaculaire sont descriptifs : ils ne servent jamais à rechercher ou deviner l’identifiant ;
-- `taxon.rank` doit temporairement être `species`, comme `sp_SChoice=species` dans le formulaire ;
+- en mode `group`, le filtre contient seulement `mode`, `taxonomicGroupId` et `label` ;
 - `dateFrom` et `dateTo` utilisent le format `YYYY-MM-DD` ;
 - `departments` accepte un ou plusieurs codes métropolitains, dont `2A` et `2B` ;
 - à la place de `departments`, une tâche peut fournir `zone` avec `type: "radius"`, `latitude`, `longitude`, `radiusKm` et éventuellement `address` ; le bot transforme alors le cercle en WKT `sp_Polygon` pour Faune-France ;
@@ -88,7 +92,7 @@ Le script :
 5. récupère les pages jusqu’à `data_is_finished`, une page vide, une page répétée ou `maxPages` ;
 6. attend `pagePauseMs` entre chaque page et ferme proprement le navigateur.
 
-`sp_S` reçoit exactement `taxon.fauneFranceId`. `sp_SChoice` reste fixé à `species` pour ce prototype.
+En mode espèce, `sp_S` reçoit exactement `filter.fauneFranceId` et `sp_SChoice=species`. En mode groupe, le bot envoie `sp_SChoice=all` avec le `sp_tg` demandé et n’envoie pas `sp_S`.
 
 ## 3. Commande de test historique
 
