@@ -3,6 +3,10 @@ type MonitoringDetail = {
   id: number
   name: string
   taxon?: { scientific_name?: string | null; vernacular_name?: string | null; preferred_french_name?: string | null } | null
+  taxa?: Array<{
+    scientific_name?: string | null
+    pivot: { taxon_label_snapshot?: string | null; taxon_scope: 'exact' | 'subtree' }
+  }>
   zone_type: 'france' | 'departments' | 'radius'
   zone_data: { address?: string; latitude?: number; longitude?: number; radius_km?: number; department_codes?: string[] }
   sources: string[]
@@ -24,6 +28,19 @@ const error = ref('')
 const syncing = ref(false)
 const message = ref('')
 const returnTo = computed(() => `/surveillances/${route.params.id}`)
+const taxaLabel = computed(() => {
+  if (!monitoring.value) return ''
+  if (monitoring.value.taxa?.length) {
+    return monitoring.value.taxa
+      .map(taxon => taxon.pivot.taxon_label_snapshot || taxon.scientific_name)
+      .filter(Boolean)
+      .join(', ')
+  }
+  return monitoring.value.taxon?.preferred_french_name
+    || monitoring.value.taxon?.vernacular_name
+    || monitoring.value.taxon?.scientific_name
+    || 'Taxon non renseigné'
+})
 
 function formatDate(value?: string | null): string {
   if (!value) return '—'
@@ -85,8 +102,8 @@ useHead(() => ({ title: monitoring.value ? `${monitoring.value.name} — Surveil
       <div class="page-heading">
         <div>
           <h1>{{ monitoring.name }}</h1>
-          <p><strong>{{ monitoring.taxon?.preferred_french_name || monitoring.taxon?.vernacular_name || monitoring.taxon?.scientific_name || 'Tous les animaux' }}</strong></p>
-          <p>{{ zoneLabel() }} · toutes les {{ monitoring.frequency_minutes }} min · fenêtre {{ monitoring.window_minutes }} min</p>
+          <p><strong>{{ taxaLabel }}</strong></p>
+          <p>{{ zoneLabel() }} · toutes les {{ monitoring.frequency_minutes }} min · rattrapage maximal {{ monitoring.window_minutes }} min</p>
           <div class="badges"><span v-for="source in monitoring.sources" :key="source" class="badge">{{ source }}</span></div>
           <p :class="monitoring.is_active ? 'success' : 'muted'">{{ monitoring.is_active ? 'Surveillance active' : 'Surveillance désactivée' }}</p>
           <small class="muted">Dernière synchronisation : {{ formatDate(monitoring.last_synced_at) }} · prochaine : {{ formatDate(monitoring.next_sync_at) }}</small>

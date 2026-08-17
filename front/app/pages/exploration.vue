@@ -61,6 +61,8 @@ function body() {
 }
 
 function validate(): string | null {
+  if (!selectedTaxon.value) return 'Sélectionnez une espèce ou un groupe taxonomique.'
+  if (selectedTaxon.value.acceptedScientificName.toLowerCase() === 'animalia') return '« Tous les animaux » n’est plus proposé. Sélectionnez un groupe plus précis.'
   if (!sources.value.length) return 'Sélectionnez au moins une source.'
   if (zone.mode === 'departments' && !zone.departmentCodes.length) return 'Sélectionnez au moins un département.'
   if (zone.mode === 'address' && !zone.addressConfirmed) return 'Sélectionnez une adresse proposée afin de valider ses coordonnées.'
@@ -141,8 +143,8 @@ try {
       </label>
       <div class="form-grid">
         <label class="taxon-field">
-          Taxon ou tous les animaux
-          <TaxonPicker v-model="selectedTaxon" placeholder="Vide = toutes les observations" />
+          Taxon
+          <TaxonPicker v-model="selectedTaxon" placeholder="Espèce ou groupe taxonomique" required />
         </label>
         <label>
           Portée taxonomique

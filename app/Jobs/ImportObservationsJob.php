@@ -195,7 +195,11 @@ final class ImportObservationsJob implements ShouldQueue
         }
         $rule = MonitoringRule::find($import->monitoring_rule_id);
         if ($rule) {
-            $rule->update(['last_synced_at' => now(), 'next_sync_at' => now()->addMinutes($rule->frequency_minutes), 'last_error' => $error]);
+            $rule->update([
+                ...($error === null ? ['last_synced_at' => now()] : []),
+                'next_sync_at' => now()->addMinutes($rule->frequency_minutes),
+                'last_error' => $error,
+            ]);
         }
     }
 }

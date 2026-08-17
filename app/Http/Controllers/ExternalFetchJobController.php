@@ -144,7 +144,7 @@ final class ExternalFetchJobController
             return;
         }
         $rule->update([
-            'last_synced_at' => now(),
+            ...($error === null ? ['last_synced_at' => now()] : []),
             'next_sync_at' => now()->addMinutes($rule->frequency_minutes),
             'last_error' => $error,
         ]);

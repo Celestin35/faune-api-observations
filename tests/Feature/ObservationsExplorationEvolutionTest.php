@@ -185,7 +185,7 @@ final class ObservationsExplorationEvolutionTest extends TestCase
     }
 
     #[Test]
-    public function faune_france_searches_all_animals_through_its_26_taxonomic_groups(): void
+    public function exploration_requires_one_species_or_taxonomic_group(): void
     {
         Queue::fake();
         $payload = [
@@ -197,23 +197,14 @@ final class ObservationsExplorationEvolutionTest extends TestCase
         ];
 
         $this->postJson('/api/searches/estimate', $payload)
-            ->assertOk()
-            ->assertJsonPath('external.faune-france.available', true);
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('taxon_id');
         $this->postJson('/api/imports', $payload + ['confirmed' => true])
-            ->assertAccepted()
-            ->assertJsonCount(26, 'data');
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('taxon_id');
 
-        self::assertSame(26, ImportJob::count());
-        self::assertSame(26, ExternalFetchJob::count());
-        self::assertSame(
-            [1, 3, 4, 6, 7, 8, 9, 10, 11, 12, 18, 19, 20, 21, 22, 25, 26, 27, 28, 29, 30, 31, 32, 33, 43, 51],
-            ExternalFetchJob::query()->orderBy('id')->get()
-                ->map(fn (ExternalFetchJob $job): int => $job->payload['filter']['taxonomicGroupId'])
-                ->all(),
-        );
-        self::assertTrue(ExternalFetchJob::all()->every(
-            fn (ExternalFetchJob $job): bool => $job->payload['filter']['mode'] === 'group'
-        ));
+        self::assertSame(0, ImportJob::count());
+        self::assertSame(0, ExternalFetchJob::count());
     }
 
     #[Test]

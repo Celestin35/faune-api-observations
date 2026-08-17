@@ -8,6 +8,10 @@ interface MonitoringRule {
   id: number
   name: string
   taxon?: { scientific_name: string } | null
+  taxa?: Array<{
+    scientific_name: string
+    pivot: { taxon_label_snapshot?: string | null; taxon_scope: 'exact' | 'subtree' }
+  }>
   zone_type: 'france' | 'radius' | 'departments'
   zone_data: {
     type: 'france' | 'radius' | 'departments'
@@ -23,6 +27,12 @@ interface MonitoringRule {
   is_active: boolean
   next_sync_at?: string | null
   observations_count: number
+}
+
+function taxaLabel(rule: MonitoringRule): string {
+  const taxa = rule.taxa || []
+  if (taxa.length) return taxa.map(taxon => taxon.pivot.taxon_label_snapshot || taxon.scientific_name).join(', ')
+  return rule.taxon?.scientific_name || 'Taxon non renseigné'
 }
 
 const api = useApi()
@@ -125,12 +135,12 @@ await load()
     <div class="grid">
       <article v-for="rule in rules" :key="rule.id" class="card">
         <h2>{{ rule.name }}</h2>
-        <p><i>{{ rule.taxon?.scientific_name || 'Animalia' }}</i></p>
+        <p><strong>{{ taxaLabel(rule) }}</strong></p>
         <p class="monitoring-zone">{{ zoneLabel(rule) }}</p>
         <div class="badges">
           <span v-for="source in rule.sources" :key="source" class="badge">{{ source }}</span>
         </div>
-        <p>Toutes les {{ rule.frequency_minutes }} min · fenêtre {{ rule.window_minutes }} min</p>
+        <p>Toutes les {{ rule.frequency_minutes }} min · rattrapage maximal {{ rule.window_minutes }} min</p>
         <p><strong>{{ rule.observations_count }}</strong> observation{{ rule.observations_count > 1 ? 's' : '' }} dans l’historique de 2 mois</p>
         <p :class="rule.is_active ? 'success' : 'muted'">{{ rule.is_active ? 'Active' : 'Désactivée' }}</p>
         <small>Prochaine : {{ rule.next_sync_at || 'à planifier' }}</small>

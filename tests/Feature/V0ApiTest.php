@@ -326,7 +326,7 @@ final class V0ApiTest extends TestCase
     public function creates_a_permanent_collection_and_a_monitoring_then_syncs_it(): void
     {
         Queue::fake();
-        $taxon = Taxon::create(['scientific_name' => 'Animalia', 'rank' => 'kingdom']);
+        $taxon = Taxon::create(['scientific_name' => 'Testudo hermanni', 'rank' => 'species']);
         $payload = $this->searchPayload($taxon->id) + ['name' => 'Collection durable', 'is_permanent' => true];
         $this->postJson('/api/collections', $payload)->assertCreated()->assertJsonPath('data.is_permanent', true);
         $monitor = $this->searchPayload($taxon->id) + ['name' => 'Veille test', 'window_minutes' => 1440, 'frequency_minutes' => 30];

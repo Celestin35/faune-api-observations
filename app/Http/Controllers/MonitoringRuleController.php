@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\MonitoringRule;
 use App\Models\Observation;
 use App\Services\Biodiversity\MonitoringSynchronizer;
+use App\Services\Biodiversity\MonitoringTaxonSelectionValidator;
 use App\Services\Biodiversity\SearchDefinitionFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 final class MonitoringRuleController
 {
@@ -17,48 +17,80 @@ final class MonitoringRuleController
     {
         $cutoff = now()->subMonths((int) config('biodiversity.monitoring_history_months', 2));
 
-        return response()->json(MonitoringRule::with('taxon')
+        return response()->json(MonitoringRule::with(['taxon', 'taxa'])
             ->withCount(['observations' => fn ($query) => $query
                 ->where('monitoring_rule_observations.detected_at', '>=', $cutoff)])
             ->latest()->paginate(25));
     }
 
-    public function store(Request $request, SearchDefinitionFactory $factory): JsonResponse
-    {
-        $request->validate(['name' => ['required', 'string', 'max:255'], 'window_minutes' => ['required', 'integer', 'min:5'],
-            'frequency_minutes' => ['required', 'integer', 'min:5'], 'is_active' => ['sometimes', 'boolean']]);
-        $criteria = $factory->slidingCriteria($request->all());
-        if (in_array('faune-france', $criteria->sources, true)
-            && ($criteria->taxon === null
-                || ($criteria->taxon->rank_code ?: $criteria->taxon->rank) !== 'species'
-                || $criteria->taxonScope !== 'exact')) {
-            throw ValidationException::withMessages([
-                'sources' => 'Les recherches Faune-France par groupe ou tous les animaux sont disponibles dans Explorer, pas encore dans les surveillances.',
+    public function store(
+        Request $request,
+        SearchDefinitionFactory $factory,
+        MonitoringTaxonSelectionValidator $selectionValidator,
+    ): JsonResponse {
+        $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'window_minutes' => ['required', 'integer', 'min:5'],
+            'frequency_minutes' => ['required', 'integer', 'min:5'],
+            'is_active' => ['sometimes', 'boolean'],
+            'taxon_id' => ['required_without:taxa', 'nullable', 'integer', 'exists:taxa,id'],
+            'taxon_scope' => ['sometimes', 'string', 'in:exact,subtree'],
+            'taxa' => ['required_without:taxon_id', 'array', 'min:1'],
+            'taxa.*.taxon_id' => ['required', 'integer', 'distinct', 'exists:taxa,id'],
+            'taxa.*.taxon_scope' => ['required', 'string', 'in:exact,subtree'],
+        ]);
+        $selections = $request->has('taxa')
+            ? array_values((array) $request->input('taxa'))
+            : [[
+                'taxon_id' => $request->integer('taxon_id'),
+                'taxon_scope' => (string) $request->input('taxon_scope', 'exact'),
+            ]];
+        $criteria = array_map(function (array $selection) use ($factory, $request) {
+            return $factory->slidingCriteria([
+                ...$request->all(),
+                'taxon_id' => $selection['taxon_id'],
+                'taxon_scope' => $selection['taxon_scope'],
             ]);
-        }
-        $minimum = array_intersect(['gbif', 'faune-france'], $criteria->sources) ? 30 : 5;
+        }, $selections);
+        $selectionValidator->validate($criteria);
+
+        $first = $criteria[0];
+        $minimum = array_intersect(['gbif', 'faune-france'], $first->sources) ? 30 : 5;
         if ($request->integer('frequency_minutes') < $minimum) {
             return response()->json(['message' => "La fréquence minimale est de {$minimum} minutes pour ces sources."], 422);
         }
-        $rule = MonitoringRule::create([
-            'name' => $request->string('name'), 'taxon_id' => $criteria->taxon?->id,
-            'zone_type' => $criteria->zone['type'], 'zone_data' => $criteria->zone,
-            'zone_hash' => $criteria->resolve()->zoneHash(),
-            'sources' => $criteria->sources, 'window_minutes' => $criteria->windowMinutes,
-            'frequency_minutes' => $request->integer('frequency_minutes'), 'is_active' => $request->boolean('is_active', true),
-            'taxonomic_reference_version_id' => $criteria->taxonomicReferenceVersionId,
-            'taxon_scope' => $criteria->taxonScope, 'taxon_label_snapshot' => $criteria->taxonLabelSnapshot,
-            'next_sync_at' => now(),
-        ]);
 
-        return response()->json(['data' => $rule], 201);
+        $rule = DB::transaction(function () use ($criteria, $first, $request): MonitoringRule {
+            $rule = MonitoringRule::create([
+                'name' => $request->string('name'), 'taxon_id' => $first->taxon->id,
+                'zone_type' => $first->zone['type'], 'zone_data' => $first->zone,
+                'zone_hash' => $first->resolve()->zoneHash(),
+                'sources' => $first->sources, 'window_minutes' => $first->windowMinutes,
+                'frequency_minutes' => $request->integer('frequency_minutes'), 'is_active' => $request->boolean('is_active', true),
+                'taxonomic_reference_version_id' => $first->taxonomicReferenceVersionId,
+                'taxon_scope' => $first->taxonScope, 'taxon_label_snapshot' => $first->taxonLabelSnapshot,
+                'next_sync_at' => now(),
+            ]);
+            foreach ($criteria as $position => $selection) {
+                $rule->taxa()->attach($selection->taxon->id, [
+                    'taxon_scope' => $selection->taxonScope,
+                    'taxonomic_reference_version_id' => $selection->taxonomicReferenceVersionId,
+                    'taxon_label_snapshot' => $selection->taxonLabelSnapshot,
+                    'position' => $position,
+                ]);
+            }
+
+            return $rule;
+        });
+
+        return response()->json(['data' => $rule->load('taxa')], 201);
     }
 
     public function show(MonitoringRule $monitoring): JsonResponse
     {
         $cutoff = now()->subMonths((int) config('biodiversity.monitoring_history_months', 2));
 
-        return response()->json(['data' => $monitoring->load('taxon')
+        return response()->json(['data' => $monitoring->load(['taxon', 'taxa'])
             ->loadCount(['observations' => fn ($query) => $query
                 ->where('monitoring_rule_observations.detected_at', '>=', $cutoff)])]);
     }
@@ -78,8 +110,7 @@ final class MonitoringRuleController
 
     public function destroy(MonitoringRule $monitoring): JsonResponse
     {
-        abort_if($monitoring->imports()->whereIn('status', ['pending', 'running'])->exists()
-            || $monitoring->externalFetchJobs()->whereIn('status', ['pending', 'claimed', 'running'])->exists(), 409,
+        abort_if($monitoring->hasSynchronizationInProgress(), 409,
             'Cette surveillance possède encore une synchronisation en cours. Attendez sa fin avant de la supprimer.');
 
         DB::transaction(function () use ($monitoring): void {
@@ -98,6 +129,8 @@ final class MonitoringRuleController
 
     public function sync(MonitoringRule $monitoring, MonitoringSynchronizer $synchronizer): JsonResponse
     {
+        abort_if($monitoring->hasSynchronizationInProgress(), 409, 'Une synchronisation de cette surveillance est déjà en cours.');
+
         return response()->json(['data' => $synchronizer->sync($monitoring)], 202);
     }
 }

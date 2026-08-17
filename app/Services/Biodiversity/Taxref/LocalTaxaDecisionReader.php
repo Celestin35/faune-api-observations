@@ -100,6 +100,10 @@ final class LocalTaxaDecisionReader
             }
         }
 
+        if (\DB::table('monitoring_rule_taxa')->where('taxon_id', $taxon->id)->exists()) {
+            return true;
+        }
+
         return false;
     }
 }

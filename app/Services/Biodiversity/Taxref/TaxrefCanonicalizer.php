@@ -181,6 +181,9 @@ final class TaxrefCanonicalizer
             DB::table($table)->whereIn('taxon_id', Taxon::query()->where('taxref_version_id', $version->id)->select('id'))
                 ->update(['taxonomic_reference_version_id' => $version->id]);
         }
+        DB::table('monitoring_rule_taxa')
+            ->whereIn('taxon_id', Taxon::query()->where('taxref_version_id', $version->id)->select('id'))
+            ->update(['taxonomic_reference_version_id' => $version->id]);
     }
 
     /** @return array<string, mixed> */

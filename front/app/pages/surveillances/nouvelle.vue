@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import type { GeographicArea, QueryZone, TaxonResult } from '~/types/observation-query'
+import type { GeographicArea, QueryZone, TaxonSelection } from '~/types/observation-query'
 
 const api = useApi()
-const name = ref('Tichodrome — Rennes')
-const selectedTaxon = ref<TaxonResult | null>(null)
-const taxonScope = ref<'exact' | 'subtree'>('exact')
+const name = ref('Surveillance naturaliste')
+const selectedTaxa = ref<TaxonSelection[]>([])
 const frequency = ref(30)
 const windowMinutes = ref(10080)
 const zone = reactive<QueryZone>({
@@ -22,10 +21,6 @@ const loadingAreas = ref(true)
 const saving = ref(false)
 const message = ref('')
 const error = ref('')
-
-watch(selectedTaxon, (taxon) => {
-  taxonScope.value = taxon?.defaultScope ?? 'exact'
-})
 
 function backendZone() {
   return zone.mode === 'france'
@@ -49,7 +44,7 @@ function apiError(exception: any): string {
 async function save() {
   message.value = ''
   error.value = ''
-  if (!selectedTaxon.value) error.value = 'Cherchez puis sélectionnez un taxon dans la liste.'
+  if (!selectedTaxa.value.length) error.value = 'Ajoutez au moins une espèce ou un groupe à surveiller.'
   else if (!sources.value.length) error.value = 'Sélectionnez au moins une source.'
   else if (zone.mode === 'address' && !zone.addressConfirmed) error.value = 'Sélectionnez une adresse proposée.'
   else if (zone.mode === 'departments' && !zone.departmentCodes.length) error.value = 'Sélectionnez au moins un département.'
@@ -61,8 +56,10 @@ async function save() {
       method: 'POST',
       body: {
         name: name.value,
-        taxon_id: selectedTaxon.value!.id,
-        taxon_scope: taxonScope.value,
+        taxa: selectedTaxa.value.map(selection => ({
+          taxon_id: selection.taxon.id,
+          taxon_scope: selection.scope,
+        })),
         zone: backendZone(),
         sources: sources.value,
         frequency_minutes: frequency.value,
@@ -94,20 +91,23 @@ try {
     <form class="card monitoring-form" @submit.prevent="save">
       <div class="form-grid">
         <label>Nom<input v-model="name" required maxlength="255"></label>
-        <label class="taxon-field">Taxon<TaxonPicker v-model="selectedTaxon" required /></label>
-        <label>
-          Portée taxonomique
-          <select v-model="taxonScope">
-            <option value="exact">Taxon exact</option>
-            <option value="subtree">Taxon et descendants</option>
-          </select>
-        </label>
         <label>Fréquence (min)<input v-model.number="frequency" type="number" min="5" required></label>
-        <label>Fenêtre glissante (min)<input v-model.number="windowMinutes" type="number" min="5" required></label>
+        <label>Rattrapage maximal (min)<input v-model.number="windowMinutes" type="number" min="5" required></label>
       </div>
 
+      <MultiTaxonPicker v-model="selectedTaxa" />
+      <p class="field-help">La première synchronisation commence aujourd’hui. Les suivantes reprennent depuis la dernière exécution, sans retraiter toute la fenêtre.</p>
+
       <ZonePicker v-model="zone" :areas="areas" :loading-areas="loadingAreas" />
-      <SourcePicker v-model="sources" :taxon="selectedTaxon" :taxon-scope="taxonScope" :zone="zone" :areas="areas" />
+      <SourcePicker
+        v-model="sources"
+        :taxon="null"
+        taxon-scope="exact"
+        :taxa="selectedTaxa"
+        :zone="zone"
+        :areas="areas"
+        allow-broad-faune-france
+      />
 
       <button type="submit" :disabled="saving">{{ saving ? 'Création…' : 'Créer' }}</button>
       <p v-if="message" class="success">{{ message }}</p>

@@ -16,6 +16,7 @@ return [
     'faune_france_page_pause_ms' => (int) env('FAUNE_FRANCE_PAGE_PAUSE_MS', 500),
     'retention_days' => (int) env('BIODIVERSITY_RETENTION_DAYS', 365),
     'monitoring_history_months' => max(1, (int) env('MONITORING_HISTORY_MONTHS', 2)),
+    'monitoring_overlap_minutes' => max(0, (int) env('MONITORING_OVERLAP_MINUTES', 10)),
     'map_observation_limit' => min(30000, max(1000, (int) env('MAP_OBSERVATION_LIMIT', 30000))),
     'inaturalist_gbif_dataset_key' => env('INATURALIST_GBIF_DATASET_KEY', '50c9509d-22c7-4a22-a47d-8c48425ef4a7'),
     'sources' => [

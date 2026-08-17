@@ -90,10 +90,10 @@ Prochaine phase : décisions versionnées pour les 23 taxons historiques.
 - La recherche locale d'observations suit `taxon_paths` pour inclure tous les descendants d'un rang supérieur ; ce parcours est couvert par un test d'intégration.
 - Les versions, scopes et libellés historiques sont conservés sur les surveillances, collections, couvertures et imports.
 - GBIF et iNaturalist reçoivent leur identifiant source lorsqu'un mapping préféré validé existe ; les identifiants historiques du Tichodrome (`2484918` et `14840`) sont couverts par les tests.
-- Dans Explorer, Faune-France accepte une espèce exacte possédant un mapping validé, les groupes TAXREF reliés aux 26 groupes du portail, ou tous les animaux. Les surveillances restent limitées à une espèce exacte.
+- Explorer exige une espèce ou un groupe et refuse la recherche globale `Animalia`. Une surveillance peut réunir sans limite fixe plusieurs espèces et groupes Faune-France, avec contrôle des recouvrements et synchronisation incrémentale.
 - L'import rattache d'abord une observation grâce au mapping source, puis par un nom canonique non ambigu ; les cas sans correspondance sûre restent locaux ou non résolus et ne sont pas fusionnés arbitrairement.
 - Le composant Nuxt partagé `TaxonPicker` affiche en priorité le nom français, puis le nom scientifique, le rang, la lignée et le scope.
-- L'exploration et la création de surveillance utilisent le nouveau contrat et transmettent `taxon_scope`.
+- L'exploration transmet un taxon unique et son `taxon_scope`. Les surveillances transmettent une liste `taxa`, avec une portée propre à chaque sélection.
 
 ## Validation finale — terminée
 

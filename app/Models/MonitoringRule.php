@@ -22,6 +22,16 @@ final class MonitoringRule extends Model
         return $this->belongsTo(Taxon::class);
     }
 
+    public function taxa(): BelongsToMany
+    {
+        return $this->belongsToMany(Taxon::class, 'monitoring_rule_taxa')
+            ->withPivot([
+                'taxon_scope', 'taxonomic_reference_version_id', 'taxon_label_snapshot', 'position',
+            ])
+            ->withTimestamps()
+            ->orderBy('monitoring_rule_taxa.position');
+    }
+
     public function referenceVersion(): BelongsTo
     {
         return $this->belongsTo(TaxonomicReferenceVersion::class, 'taxonomic_reference_version_id');
@@ -40,5 +50,15 @@ final class MonitoringRule extends Model
     public function externalFetchJobs(): HasMany
     {
         return $this->hasMany(ExternalFetchJob::class);
+    }
+
+    public function hasSynchronizationInProgress(): bool
+    {
+        return $this->imports()->whereIn('status', ['pending', 'running'])->exists()
+            || $this->externalFetchJobs()->whereIn('status', [
+                ExternalFetchJob::STATUS_PENDING,
+                ExternalFetchJob::STATUS_CLAIMED,
+                ExternalFetchJob::STATUS_RUNNING,
+            ])->exists();
     }
 }

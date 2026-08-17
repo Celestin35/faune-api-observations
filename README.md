@@ -127,7 +127,7 @@ npm run worker
 
 `FAUNE_FRANCE_BOT_TOKEN` doit avoir exactement la même valeur dans le `.env` Laravel et dans `bot/.env`. Les commandes de connexion manuelle et de recherche ponctuelle restent décrites dans [bot/README.md](bot/README.md).
 
-Dans l’exploration, Faune-France accepte une espèce exacte possédant un mapping validé, un groupe taxonomique compatible ou « Tous les animaux ». Un groupe produit une tâche demandant toutes ses espèces ; « Tous les animaux » lance successivement les 26 groupes du portail. Les surveillances Faune-France restent limitées à une espèce exacte. La zone peut être la France métropolitaine entière, un point/rayon métropolitain ou des départements utilisant tous le portail `faune_france`. L’estimation Faune-France est signalée comme indisponible et l’avancement est ensuite visible dans `/imports`.
+L’exploration exige désormais une espèce ou un groupe taxonomique précis ; la recherche globale « Tous les animaux » n’est plus proposée. Les surveillances peuvent réunir librement plusieurs espèces ou groupes, sans limite fixe, mais refusent le groupe global et les sélections qui se recouvrent. Elles démarrent le jour de leur activation puis reprennent depuis leur dernière synchronisation, avec un léger chevauchement, au lieu de recharger toute leur fenêtre. La zone peut être la France métropolitaine entière, un point/rayon métropolitain ou des départements utilisant tous le portail `faune_france`. L’estimation Faune-France reste indisponible et l’avancement est visible dans `/imports`.
 
 Les départements ultramarins restent utilisables avec GBIF et iNaturalist, mais leurs portails Faune dédiés ne disposent pas encore de connecteur Playwright.
 

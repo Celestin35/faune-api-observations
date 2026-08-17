@@ -15,7 +15,7 @@ Nuxt utilise les composants communs `TaxonPicker`, `DateRangePicker`, `ZonePicke
 
 ## Chemins d’import
 
-`ImportCoordinator` crée un `import_job` par source, ou un par groupe Faune-France lorsque la demande couvre plusieurs groupes.
+`ImportCoordinator` crée un `import_job` par source et par sélection taxonomique, ou un par groupe Faune-France lorsque le taxon sélectionné correspond à plusieurs groupes du portail.
 
 ```text
 GBIF         -> ImportObservationsJob -> connecteur HTTP -> normalisation -> persistance
@@ -23,7 +23,9 @@ iNaturalist  -> ImportObservationsJob -> connecteur HTTP -> normalisation -> per
 Faune-France -> external_fetch_job lié -> worker Playwright -> lots de 100 -> normalisation -> persistance
 ```
 
-Pour Faune-France, l’import ponctuel accepte une espèce exacte avec un mapping `faune_france` préféré et validé, un groupe TAXREF pris en charge, ou l’absence de taxon pour tous les animaux. Le portail n’ayant pas de requête globale unique, ce dernier cas crée 26 tâches, une pour chaque groupe Faune-France. Chaque résultat de groupe conserve sa propre espèce grâce à `species_array`. La période doit être valide et la zone peut être la France métropolitaine entière, des départements du portail métropolitain ou un point/rayon métropolitain. Le rayon est transmis au bot, qui construit le polygone WKT natif ; il n’est pas converti en départements.
+Pour Faune-France, l’import ponctuel exige une espèce exacte avec un mapping `faune_france` préféré et validé, ou un groupe TAXREF pris en charge. La recherche globale sans taxon est refusée afin d’éviter 26 recherches lourdes. Chaque résultat de groupe conserve sa propre espèce grâce à `species_array`. La période doit être valide et la zone peut être la France métropolitaine entière, des départements du portail métropolitain ou un point/rayon métropolitain. Le rayon est transmis au bot, qui construit le polygone WKT natif ; il n’est pas converti en départements.
+
+Une surveillance possède une liste ordonnée de taxons dans `monitoring_rule_taxa`. Elle peut contenir autant d’espèces ou de groupes que nécessaire, mais pas `Animalia`, et deux sélections ancêtre/descendant ne peuvent pas se recouvrir lorsque l’ancêtre inclut ses descendants. La première exécution commence le jour de la création. Les suivantes repartent de la dernière réussite avec dix minutes de chevauchement, dans la limite de la période maximale de rattrapage configurée.
 
 Faune-France ne fournit pas d’estimation légère. L’API renvoie donc :
 
@@ -42,7 +44,7 @@ L’import reste confirmable. Le total devient connu à la fin de la pagination.
 
 `import_jobs` expose `pending`, `running`, `completed`, `partial`, `failed` et `cancelled`. Le claim du worker démarre l’import associé. Chaque lot idempotent incrémente les compteurs traité, créé, mis à jour et inchangé une seule fois. La fin, la troncature de sécurité et l’erreur du worker sont propagées à l’import visible. Les observations déjà persistées sont conservées en cas d’échec.
 
-Un import Faune-France encore `pending` peut être annulé. La tâche externe est alors marquée `cancelled`, sans suppression. Une tâche déjà réservée n’est jamais supprimée brutalement.
+Un import Faune-France encore `pending` peut être annulé. La tâche externe est alors marquée `cancelled`, sans suppression. Une tâche déjà réservée n’est jamais supprimée brutalement. Les groupes ne contenant aucune observation produisent un lot vide valide et se terminent normalement à zéro.
 
 ## Contrat normalisé et confidentialité
 

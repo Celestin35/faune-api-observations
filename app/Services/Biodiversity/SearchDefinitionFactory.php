@@ -21,6 +21,17 @@ final class SearchDefinitionFactory
     public function absoluteCriteria(array $data): ObservationQueryCriteria
     {
         [$taxon, $scope, $zone, $sources] = $this->common($data);
+        if ($taxon === null) {
+            throw ValidationException::withMessages([
+                'taxon_id' => 'Sélectionnez une espèce ou un groupe taxonomique.',
+            ]);
+        }
+        $scientificName = $taxon->accepted_scientific_name ?: $taxon->scientific_name;
+        if (mb_strtolower(trim((string) $scientificName)) === 'animalia') {
+            throw ValidationException::withMessages([
+                'taxon_id' => 'La recherche « Tous les animaux » n’est plus proposée. Sélectionnez une espèce ou un groupe plus précis.',
+            ]);
+        }
         $from = (string) ($data['date_from'] ?? '');
         $to = (string) ($data['date_to'] ?? '');
         if (! $this->isDate($from) || ! $this->isDate($to) || $from > $to) {

@@ -2,9 +2,9 @@
 
 namespace App\Services\Biodiversity;
 
-use App\Models\ExternalFetchJob;
-use App\Models\GeographicArea;
 use App\Models\MonitoringRule;
+use App\Models\Taxon;
+use Carbon\CarbonImmutable;
 
 final class MonitoringSynchronizer
 {
@@ -12,67 +12,63 @@ final class MonitoringSynchronizer
 
     public function sync(MonitoringRule $rule): array
     {
-        $criteria = new ObservationQueryCriteria(
-            taxon: $rule->taxon,
-            taxonScope: $rule->taxon_scope,
-            taxonomicReferenceVersionId: $rule->taxonomic_reference_version_id,
-            taxonLabelSnapshot: $rule->taxon_label_snapshot,
-            periodType: 'sliding',
-            dateFrom: null,
-            dateTo: null,
-            windowMinutes: $rule->window_minutes,
-            zone: $rule->zone_data,
-            sources: $rule->sources,
-        );
-        $definition = $criteria->resolve();
-        $from = $definition->dateFrom;
-        $to = $definition->dateTo;
-        $regularSources = array_values(array_diff($rule->sources, ['faune-france']));
-        $jobs = [];
-        if ($regularSources !== []) {
-            $regularDefinition = new SearchDefinition($definition->taxon, $from, $to, $definition->zone, $regularSources,
-                $definition->taxonScope, $definition->taxonomicReferenceVersionId);
-            $jobs = $this->imports->create($regularDefinition, null, $rule->id);
+        if ($rule->hasSynchronizationInProgress()) {
+            return [];
         }
-        if (in_array('faune-france', $rule->sources, true)) {
-            $mapping = $rule->taxon?->mappings()->where('source', 'faune_france')
-                ->where('mapping_status', 'validated')->where('is_preferred', true)->firstOrFail();
-            $spatialPayload = match ($rule->zone_type) {
-                'radius' => ['zone' => [
-                    'type' => 'radius',
-                    'latitude' => (float) $rule->zone_data['latitude'],
-                    'longitude' => (float) $rule->zone_data['longitude'],
-                    'radiusKm' => (float) $rule->zone_data['radius_km'],
-                    ...(! empty($rule->zone_data['address']) ? ['address' => $rule->zone_data['address']] : []),
-                ]],
-                'france' => ['departments' => GeographicArea::fauneFranceDepartmentCodes()],
-                default => ['departments' => $rule->zone_data['department_codes']],
-            };
-            $jobs[] = ExternalFetchJob::create([
-                'monitoring_rule_id' => $rule->id,
-                'taxon_id' => $rule->taxon_id,
-                'taxon_source_mapping_id' => $mapping->id,
-                'source' => 'faune-france',
-                'status' => ExternalFetchJob::STATUS_PENDING,
-                'payload' => [
-                    'filter' => [
-                        'mode' => 'species',
-                        'taxonomicGroupId' => (int) ($mapping->raw_data['taxonomic_group_id'] ?? 1),
-                        'fauneFranceId' => $mapping->source_taxon_id,
-                        'scientificName' => $rule->taxon->scientific_name,
-                        'vernacularName' => $rule->taxon->frenchName() ?: $rule->taxon->scientific_name,
-                        'label' => $rule->taxon->frenchName() ?: $rule->taxon->scientific_name,
-                    ],
-                    'dateFrom' => $from,
-                    'dateTo' => $to,
-                    ...$spatialPayload,
-                    'maxPages' => (int) config('biodiversity.faune_france_max_pages', 100),
-                    'pagePauseMs' => (int) config('biodiversity.faune_france_page_pause_ms', 1500),
-                ],
-            ]);
+
+        [$from, $to] = $this->incrementalPeriod($rule);
+        $jobs = [];
+        foreach ($this->taxonSelections($rule) as $selection) {
+            $definition = new SearchDefinition(
+                taxon: $selection['taxon'],
+                dateFrom: $from,
+                dateTo: $to,
+                zone: $rule->zone_data,
+                sources: $rule->sources,
+                taxonScope: $selection['scope'],
+                taxonomicReferenceVersionId: $selection['referenceVersionId'],
+            );
+            array_push($jobs, ...$this->imports->create($definition, null, $rule->id));
         }
         $rule->update(['next_sync_at' => now()->addMinutes($rule->frequency_minutes), 'last_error' => null]);
 
         return $jobs;
+    }
+
+    /** @return array{string, string} */
+    private function incrementalPeriod(MonitoringRule $rule): array
+    {
+        $now = CarbonImmutable::now();
+        $windowStart = $now->subMinutes($rule->window_minutes);
+        $cursor = $rule->last_synced_at !== null
+            ? CarbonImmutable::instance($rule->last_synced_at)
+            : CarbonImmutable::instance($rule->created_at);
+        $from = $cursor->subMinutes((int) config('biodiversity.monitoring_overlap_minutes', 10));
+        if ($from->lessThan($windowStart)) {
+            $from = $windowStart;
+        }
+
+        return [$from->toDateString(), $now->toDateString()];
+    }
+
+    /** @return list<array{taxon: Taxon, scope: string, referenceVersionId: ?int}> */
+    private function taxonSelections(MonitoringRule $rule): array
+    {
+        $taxa = $rule->taxa()->get();
+        if ($taxa->isNotEmpty()) {
+            return $taxa->map(fn (Taxon $taxon): array => [
+                'taxon' => $taxon,
+                'scope' => (string) $taxon->pivot->taxon_scope,
+                'referenceVersionId' => $taxon->pivot->taxonomic_reference_version_id !== null
+                    ? (int) $taxon->pivot->taxonomic_reference_version_id
+                    : null,
+            ])->all();
+        }
+
+        return $rule->taxon === null ? [] : [[
+            'taxon' => $rule->taxon,
+            'scope' => $rule->taxon_scope,
+            'referenceVersionId' => $rule->taxonomic_reference_version_id,
+        ]];
     }
 }

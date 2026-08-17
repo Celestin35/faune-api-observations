@@ -11,6 +11,11 @@ export interface TaxonResult {
   sourceAvailability: { gbif: boolean; inaturalist: boolean; fauneFrance: boolean }
 }
 
+export interface TaxonSelection {
+  taxon: TaxonResult
+  scope: 'exact' | 'subtree'
+}
+
 export interface GeographicArea {
   code: string
   name: string
