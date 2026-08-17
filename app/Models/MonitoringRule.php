@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 final class MonitoringRule extends Model
 {
@@ -28,6 +29,16 @@ final class MonitoringRule extends Model
 
     public function observations(): BelongsToMany
     {
-        return $this->belongsToMany(Observation::class, 'monitoring_rule_observations');
+        return $this->belongsToMany(Observation::class, 'monitoring_rule_observations')->withPivot('detected_at');
+    }
+
+    public function imports(): HasMany
+    {
+        return $this->hasMany(ImportJob::class);
+    }
+
+    public function externalFetchJobs(): HasMany
+    {
+        return $this->hasMany(ExternalFetchJob::class);
     }
 }

@@ -28,7 +28,12 @@ final class DataCollection extends Model
 
     public function observations(): BelongsToMany
     {
-        return $this->belongsToMany(Observation::class, 'collection_observations');
+        return $this->belongsToMany(Observation::class, 'collection_observations')->withPivot('attached_at');
+    }
+
+    public function imports(): HasMany
+    {
+        return $this->hasMany(ImportJob::class);
     }
 
     public function coverages(): HasMany

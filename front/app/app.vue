@@ -5,7 +5,7 @@
       <nav>
         <NuxtLink to="/dashboard">Tableau de bord</NuxtLink>
         <NuxtLink to="/exploration">Explorer</NuxtLink>
-        <NuxtLink to="/carte">Carte</NuxtLink>
+        <NuxtLink to="/recherches">Recherches</NuxtLink>
         <NuxtLink to="/surveillances">Surveillances</NuxtLink>
         <NuxtLink to="/imports">Imports</NuxtLink>
       </nav>

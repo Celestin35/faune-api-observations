@@ -3,15 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\DataCollection;
+use App\Models\Observation;
 use App\Services\Biodiversity\SearchDefinitionFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 final class CollectionController
 {
     public function index(): JsonResponse
     {
-        return response()->json(DataCollection::withCount('observations')->latest()->paginate(25));
+        return response()->json(DataCollection::query()
+            ->with(['taxon', 'imports' => fn ($query) => $query->latest()])
+            ->withCount('observations')->latest()->paginate(25));
     }
 
     public function store(Request $request, SearchDefinitionFactory $factory): JsonResponse
@@ -33,6 +37,27 @@ final class CollectionController
 
     public function show(DataCollection $collection): JsonResponse
     {
-        return response()->json(['data' => $collection->load(['taxon', 'coverages'])->loadCount('observations')]);
+        return response()->json(['data' => $collection
+            ->load(['taxon', 'coverages', 'imports' => fn ($query) => $query->latest()])
+            ->loadCount('observations')]);
+    }
+
+    public function destroy(DataCollection $collection): JsonResponse
+    {
+        abort_if($collection->imports()->whereIn('status', ['pending', 'running'])->exists(), 409,
+            'Cette recherche possède encore un import en cours. Attendez sa fin ou annulez-le avant de la supprimer.');
+
+        DB::transaction(function () use ($collection): void {
+            $observationIds = $collection->observations()->pluck('observations.id');
+            $collection->delete();
+            $observationIds->chunk(500)->each(function ($ids): void {
+                Observation::query()->whereKey($ids)
+                    ->whereDoesntHave('collections')
+                    ->whereDoesntHave('monitoringRules')
+                    ->delete();
+            });
+        });
+
+        return response()->json([], 204);
     }
 }
