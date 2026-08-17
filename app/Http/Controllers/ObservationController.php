@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\ObservationDetailResource;
+use App\Http\Resources\ObservationListResource;
 use App\Models\Observation;
 use App\Models\Taxon;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,8 +16,9 @@ final class ObservationController
     {
         $request->validate(['taxon_id' => ['nullable', 'integer'], 'taxon_scope' => ['nullable', 'in:exact,subtree'], 'source' => ['nullable', 'in:gbif,inaturalist,faune-france'],
             'date_from' => ['nullable', 'date'], 'date_to' => ['nullable', 'date'], 'validation_status' => ['nullable', 'string'],
-            'limit' => ['nullable', 'integer', 'between:1,1000']]);
-        $query = Observation::query()->with(['taxon', 'sources:id,observation_id,source,source_occurrence_id,source_url,license']);
+            'limit' => ['nullable', 'integer', 'between:1,1000'], 'per_page' => ['nullable', 'integer', 'between:1,500'],
+            'page' => ['nullable', 'integer', 'min:1']]);
+        $query = Observation::query()->with(['taxon', 'sources.media']);
         $query->when($request->integer('taxon_id'), function (Builder $q, int $id) use ($request): void {
             $taxon = Taxon::query()->find($id);
             if ($request->string('taxon_scope')->toString() === 'subtree' && $taxon?->taxref_version_id !== null) {
@@ -30,11 +33,19 @@ final class ObservationController
         $query->when($request->input('validation_status'), fn (Builder $q, string $status) => $q->where('validation_status', $status));
         $query->when($request->input('source'), fn (Builder $q, string $source) => $q->whereHas('sources', fn (Builder $sq) => $sq->where('source', $source)));
 
-        return response()->json(['data' => $query->latest('observed_at')->limit($request->integer('limit', 500))->get()]);
+        $perPage = $request->integer('per_page', $request->integer('limit', 100));
+
+        return ObservationListResource::collection($query->latest('observed_at')->paginate($perPage))->response();
     }
 
     public function show(Observation $observation): JsonResponse
     {
-        return response()->json(['data' => $observation->load(['taxon', 'sources'])]);
+        $observation->load([
+            'taxon.rankDefinition',
+            'taxon.ancestorPaths.ancestor',
+            'sources.media',
+        ]);
+
+        return (new ObservationDetailResource($observation))->response();
     }
 }

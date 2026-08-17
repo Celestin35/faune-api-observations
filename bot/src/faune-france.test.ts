@@ -4,6 +4,7 @@ import type { Page } from "playwright";
 import { buildDepartmentMask, validateConfig } from "./config.js";
 import {
   buildSearchParameters,
+  buildRadiusPolygonWkt,
   assertLiveAuthenticatedSession,
   decidePagination,
   fingerprintPageData,
@@ -18,6 +19,21 @@ test("le masque des départements suit le format de l’extension", () => {
   assert.equal(mask[19], "1");
   assert.equal(mask[74], "1");
   assert.equal([...mask].filter((value) => value === "1").length, 3);
+});
+
+test("le masque France métropolitaine contient les 96 départements avec la Corse", () => {
+  const departments = [
+    ...Array.from({ length: 19 }, (_, index) => String(index + 1).padStart(2, "0")),
+    "2A",
+    "2B",
+    ...Array.from({ length: 75 }, (_, index) => String(index + 21))
+  ];
+  const mask = buildDepartmentMask(departments);
+
+  assert.equal(departments.length, 96);
+  assert.equal(mask.length, 100);
+  assert.equal(mask.slice(0, 96), "1".repeat(96));
+  assert.equal(mask.slice(96), "0000");
 });
 
 test("les paramètres utilisent le taxon fourni et le numéro de page", () => {
@@ -39,6 +55,28 @@ test("les paramètres utilisent le taxon fourni et le numéro de page", () => {
   assert.equal(parameters.get("sp_DTo"), "22.07.2026");
   assert.equal(parameters.get("mp_current_page"), "2");
   assert.equal(parameters.get("sp_cC")?.length, 100);
+});
+
+test("un point et un rayon utilisent le polygone WKT natif de Faune-France", () => {
+  const parameters = buildSearchParameters({
+    taxon: { fauneFranceId: "383" },
+    dateFrom: "2026-06-22",
+    dateTo: "2026-07-22",
+    zone: { type: "radius", latitude: 48.1173, longitude: -1.6778, radiusKm: 30 }
+  }, 1);
+  const polygon = parameters.get("sp_Polygon") ?? "";
+  const coordinates = polygon.slice("POLYGON((".length, -2).split(",");
+
+  assert.equal(parameters.get("sp_PChoice"), "polygon");
+  assert.equal(parameters.has("sp_cC"), false);
+  assert.match(polygon, /^POLYGON\(\(-?\d+\.\d{7} -?\d+\.\d{7},/);
+  assert.equal(coordinates.length, 65);
+  assert.equal(coordinates[0], coordinates.at(-1));
+});
+
+test("le générateur de cercle refuse les coordonnées et rayons invalides", () => {
+  assert.throws(() => buildRadiusPolygonWkt(91, 0, 10), /invalides/);
+  assert.throws(() => buildRadiusPolygonWkt(48, 2, 0), /invalides/);
 });
 
 test("une seule page marquée terminée arrête la pagination", () => {

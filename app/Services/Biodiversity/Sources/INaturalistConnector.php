@@ -107,6 +107,18 @@ final class INaturalistConnector extends AbstractHttpConnector implements Occurr
         }
 
         $coordinates = $record['geojson']['coordinates'] ?? null;
+        $latitude = is_array($coordinates) && isset($coordinates[1]) ? (float) $coordinates[1] : null;
+        $longitude = is_array($coordinates) && isset($coordinates[0]) ? (float) $coordinates[0] : null;
+        // Only the explicitly public accuracy belongs beside the public geojson.
+        // The generic/private accuracy fields are never used for public output.
+        $uncertainty = isset($record['public_positional_accuracy']) ? (float) $record['public_positional_accuracy'] : null;
+        $geoprivacy = strtolower((string) ($record['geoprivacy'] ?? ''));
+        $masked = in_array($geoprivacy, ['obscured', 'private'], true);
+        $locationStatus = $latitude === null || $longitude === null
+            ? 'unavailable'
+            : ($masked ? 'source_masked' : ($geoprivacy === 'open' && $uncertainty === 0.0 ? 'exact' : 'approximate'));
+        $observedAt = $record['time_observed_at'] ?? $record['observed_on'] ?? null;
+        $observer = $record['user']['login'] ?? $record['user']['name'] ?? null;
 
         return new NormalizedOccurrence(
             source: $this->key(),
@@ -116,21 +128,67 @@ final class INaturalistConnector extends AbstractHttpConnector implements Occurr
             vernacularName: $taxon['preferred_common_name'] ?? $record['species_guess'] ?? null,
             sourceTaxonId: isset($taxon['id']) ? (string) $taxon['id'] : null,
             classification: $classification,
-            observedAt: $record['time_observed_at'] ?? $record['observed_on'] ?? null,
+            observedAt: $observedAt,
             sourceCreatedAt: $record['created_at'] ?? null,
             sourceUpdatedAt: $record['updated_at'] ?? null,
             publishedAt: $record['created_at'] ?? null,
-            latitude: is_array($coordinates) && isset($coordinates[1]) ? (float) $coordinates[1] : null,
-            longitude: is_array($coordinates) && isset($coordinates[0]) ? (float) $coordinates[0] : null,
-            coordinateUncertaintyM: isset($record['public_positional_accuracy']) ? (float) $record['public_positional_accuracy'] : (isset($record['positional_accuracy']) ? (float) $record['positional_accuracy'] : null),
+            latitude: $latitude,
+            longitude: $longitude,
+            coordinateUncertaintyM: $uncertainty,
             individualCount: null,
             validationStatus: $record['quality_grade'] ?? null,
-            observerName: $record['user']['login'] ?? $record['user']['name'] ?? null,
+            observerName: $observer,
             license: $record['license_code'] ?? null,
             sourceUrl: $record['uri'] ?? "https://www.inaturalist.org/observations/{$id}",
             media: $media,
             rawData: $record,
+            locationName: $record['place_guess'] ?? null,
+            remarks: $record['description'] ?? null,
+            temporalPrecision: isset($record['time_observed_at']) ? 'datetime' : (isset($record['observed_on']) ? 'date' : 'unknown'),
+            locationStatus: $locationStatus,
+            sourceLocationPrecision: $geoprivacy !== '' ? $geoprivacy : null,
+            localityName: $record['place_guess'] ?? null,
+            observerIsPublic: is_string($observer) && trim($observer) !== '',
+            lifeStage: $this->annotation($record, ['Life Stage', 'Stade de vie']),
+            sex: $this->annotation($record, ['Sex', 'Sexe']),
+            behavior: $this->observationField($record, ['Behavior', 'Comportement']),
         );
+    }
+
+    /** @param list<string> $names */
+    private function annotation(array $record, array $names): ?string
+    {
+        foreach (($record['annotations'] ?? []) as $annotation) {
+            if (! is_array($annotation)) {
+                continue;
+            }
+            $attribute = (string) ($annotation['controlled_attribute_name'] ?? '');
+            if (in_array($attribute, $names, true)) {
+                $value = trim((string) ($annotation['controlled_value_name'] ?? ''));
+
+                return $value !== '' ? $value : null;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param list<string> $names */
+    private function observationField(array $record, array $names): ?string
+    {
+        foreach (($record['ofvs'] ?? $record['observation_field_values'] ?? []) as $field) {
+            if (! is_array($field)) {
+                continue;
+            }
+            $name = (string) ($field['observation_field']['name'] ?? '');
+            if (in_array($name, $names, true)) {
+                $value = trim((string) ($field['value'] ?? ''));
+
+                return $value !== '' ? $value : null;
+            }
+        }
+
+        return null;
     }
 
     /** @return array<string, scalar|null> */

@@ -116,6 +116,15 @@ final class GbifConnector extends AbstractHttpConnector implements OccurrenceSou
             ], static fn (mixed $value): bool => $value !== null),
             is_array($record['media'] ?? null) ? $record['media'] : [],
         ));
+        $latitude = isset($record['decimalLatitude']) ? (float) $record['decimalLatitude'] : null;
+        $longitude = isset($record['decimalLongitude']) ? (float) $record['decimalLongitude'] : null;
+        $uncertainty = isset($record['coordinateUncertaintyInMeters']) ? (float) $record['coordinateUncertaintyInMeters'] : null;
+        $masked = ! empty($record['informationWithheld']) || ! empty($record['dataGeneralizations']);
+        $locationStatus = $latitude === null || $longitude === null
+            ? 'unavailable'
+            : ($masked ? 'source_masked' : ($uncertainty === 0.0 ? 'exact' : 'approximate'));
+        $observedAt = $record['eventDate'] ?? null;
+        $observer = is_array($record['recordedBy'] ?? null) ? implode(', ', $record['recordedBy']) : ($record['recordedBy'] ?? null);
 
         return new NormalizedOccurrence(
             source: $this->key(),
@@ -125,20 +134,37 @@ final class GbifConnector extends AbstractHttpConnector implements OccurrenceSou
             vernacularName: $record['vernacularName'] ?? null,
             sourceTaxonId: isset($record['taxonKey']) ? (string) $record['taxonKey'] : null,
             classification: $classification,
-            observedAt: $record['eventDate'] ?? null,
+            observedAt: $observedAt,
             sourceCreatedAt: $record['created'] ?? null,
             sourceUpdatedAt: $record['modified'] ?? null,
             publishedAt: $record['lastCrawled'] ?? null,
-            latitude: isset($record['decimalLatitude']) ? (float) $record['decimalLatitude'] : null,
-            longitude: isset($record['decimalLongitude']) ? (float) $record['decimalLongitude'] : null,
-            coordinateUncertaintyM: isset($record['coordinateUncertaintyInMeters']) ? (float) $record['coordinateUncertaintyInMeters'] : null,
+            latitude: $latitude,
+            longitude: $longitude,
+            coordinateUncertaintyM: $uncertainty,
             individualCount: isset($record['individualCount']) && is_numeric($record['individualCount']) ? (int) $record['individualCount'] : null,
             validationStatus: $record['identificationVerificationStatus'] ?? $record['occurrenceStatus'] ?? null,
-            observerName: is_array($record['recordedBy'] ?? null) ? implode(', ', $record['recordedBy']) : ($record['recordedBy'] ?? null),
+            observerName: $observer,
             license: $record['license'] ?? null,
             sourceUrl: $record['references'] ?? ($key !== '' ? "https://www.gbif.org/occurrence/{$key}" : null),
             media: $media,
             rawData: $record,
+            locationName: $record['locality'] ?? $record['verbatimLocality'] ?? null,
+            remarks: $record['occurrenceRemarks'] ?? null,
+            temporalPrecision: is_string($observedAt) && str_contains($observedAt, 'T') ? 'datetime' : ($observedAt ? 'date' : 'unknown'),
+            locationStatus: $locationStatus,
+            sourceLocationPrecision: isset($record['coordinatePrecision']) ? (string) $record['coordinatePrecision'] : null,
+            countryCode: $record['countryCode'] ?? null,
+            countryName: $record['country'] ?? null,
+            regionName: $record['stateProvince'] ?? null,
+            departmentCode: $record['countyCode'] ?? null,
+            departmentName: $record['county'] ?? null,
+            municipalityCode: $record['municipalityID'] ?? null,
+            municipalityName: $record['municipality'] ?? null,
+            localityName: $record['locality'] ?? $record['verbatimLocality'] ?? null,
+            observerIsPublic: is_string($observer) && trim($observer) !== '',
+            lifeStage: $record['lifeStage'] ?? null,
+            sex: $record['sex'] ?? null,
+            behavior: $record['behavior'] ?? null,
         );
     }
 

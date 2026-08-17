@@ -26,6 +26,36 @@ test("une tâche valide est acceptée sans modifier son taxon", () => {
   assert.deepEqual(job.departments, ["09"]);
 });
 
+test("une tâche point et rayon métropolitaine est acceptée", () => {
+  const input = validJob();
+  delete input.departments;
+  input.zone = {
+    type: "radius",
+    latitude: 48.1173,
+    longitude: -1.6778,
+    radiusKm: 30,
+    address: " Rennes, France "
+  };
+  const job = validateSearchJob(input);
+  assert.equal(job.zone?.type, "radius");
+  assert.equal(job.zone?.radiusKm, 30);
+  assert.equal(job.zone?.address, "Rennes, France");
+  assert.equal(job.departments, undefined);
+});
+
+test("une tâche ne peut pas mélanger départements et point/rayon", () => {
+  const input = validJob();
+  input.zone = { type: "radius", latitude: 48.1173, longitude: -1.6778, radiusKm: 30 };
+  assert.throws(() => validateSearchJob(input), /exactement une zone/);
+});
+
+test("une zone point/rayon ultramarine est refusée par le connecteur métropolitain", () => {
+  const input = validJob();
+  delete input.departments;
+  input.zone = { type: "radius", latitude: 16.241, longitude: -61.533, radiusKm: 10 };
+  assert.throws(() => validateSearchJob(input), /France métropolitaine/);
+});
+
 test("un champ inconnu est refusé par la validation stricte", () => {
   const input = validJob();
   input.automaticTaxonResolution = true;

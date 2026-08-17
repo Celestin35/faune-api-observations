@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 final class ImportJob extends Model
 {
@@ -13,7 +14,7 @@ final class ImportJob extends Model
 
     protected function casts(): array
     {
-        return ['zone_data' => 'array', 'date_from' => 'date', 'date_to' => 'date',
+        return ['zone_data' => 'array', 'date_from' => 'immutable_date:Y-m-d', 'date_to' => 'immutable_date:Y-m-d',
             'started_at' => 'immutable_datetime', 'finished_at' => 'immutable_datetime'];
     }
 
@@ -25,5 +26,10 @@ final class ImportJob extends Model
     public function referenceVersion(): BelongsTo
     {
         return $this->belongsTo(TaxonomicReferenceVersion::class, 'taxonomic_reference_version_id');
+    }
+
+    public function externalFetchJob(): HasOne
+    {
+        return $this->hasOne(ExternalFetchJob::class);
     }
 }

@@ -51,6 +51,7 @@ Un exemple prêt à l’emploi se trouve dans `bot/jobs/test-001.json` :
 - `taxon.rank` doit temporairement être `species`, comme `sp_SChoice=species` dans le formulaire ;
 - `dateFrom` et `dateTo` utilisent le format `YYYY-MM-DD` ;
 - `departments` accepte un ou plusieurs codes métropolitains, dont `2A` et `2B` ;
+- à la place de `departments`, une tâche peut fournir `zone` avec `type: "radius"`, `latitude`, `longitude`, `radiusKm` et éventuellement `address` ; le bot transforme alors le cercle en WKT `sp_Polygon` pour Faune-France ;
 - `pagePauseMs` est la pause entre deux pages, entre 500 et 60 000 ms ;
 - `maxPages` est la limite de sécurité, entre 1 et 1 000.
 
@@ -83,7 +84,7 @@ Le script :
 1. valide intégralement le fichier JSON ;
 2. ouvre le profil persistant ;
 3. charge `https://www.faune-france.org/`, vérifie la session et la renouvelle si nécessaire ;
-4. initialise la recherche avec le taxon, les dates et les départements du fichier ;
+4. initialise la recherche avec le taxon, les dates et soit les départements, soit le polygone point/rayon du fichier ;
 5. récupère les pages jusqu’à `data_is_finished`, une page vide, une page répétée ou `maxPages` ;
 6. attend `pagePauseMs` entre chaque page et ferme proprement le navigateur.
 
@@ -102,6 +103,8 @@ Le moteur commun :
 1. exécute depuis la page un `POST` vers `m_id=94` pour initialiser les critères ;
 2. exécute depuis la page les `POST` successifs vers `m_id=1351&content=observations_by_page` ;
 3. conserve la pagination actuelle basée sur `data_is_finished`.
+
+Après `m_id=94`, le bot attend au minimum 1,5 seconde avant la première page. Si Faune-France renvoie malgré tout un corps vide pendant la préparation de la recherche, il attend puis réessaie cette page une seule fois.
 
 ## 4. Worker Laravel permanent
 
@@ -128,6 +131,13 @@ Après `php artisan migrate`, démarrer le worker depuis `bot/` :
 ```bash
 npm run worker
 ```
+
+En développement local, la commande `./dev` exécutée depuis la racine lance
+également ce worker sous forme de service utilisateur systemd, avec redémarrage
+automatique en cas de crash. Son état et ses logs sont disponibles avec
+`./dev status` et `./dev logs`. Il ne faut pas lancer simultanément un second
+`npm run worker`, car les deux processus tenteraient d’utiliser le même profil
+Firefox persistant.
 
 Toutes les 30 secondes, le worker :
 
@@ -176,6 +186,22 @@ npm run typecheck
 ```
 
 Ces commandes vérifient le schéma des tâches, le taxon dynamique, les paramètres, le masque des départements, la pagination et la détection de connexion sans appeler Faune-France.
+
+## Mise à jour du catalogue taxonomique Faune-France
+
+Le sélecteur Faune-France conserve son catalogue officiel dans l’IndexedDB du navigateur. Pour mettre à jour les correspondances locales après une évolution de Faune-France ou de TAXREF, arrêter d’abord le worker afin qu’il libère le profil, puis exécuter :
+
+```bash
+cd bot
+npm run export-taxa
+cd ..
+docker compose exec -T app php artisan faune-france:import-taxa \
+  /app/bot/data/output/faune-france-taxa.json --dry-run
+docker compose exec -T app php artisan faune-france:import-taxa \
+  /app/bot/data/output/faune-france-taxa.json
+```
+
+L’import n’invente jamais une correspondance par ressemblance. Il valide uniquement un nom scientifique accepté exact, un synonyme scientifique TAXREF exact ou, en dernier recours, un nom vernaculaire français exact et unique pour une espèce. Les entrées absentes ou ambiguës restent dans le rapport JSON pour révision et ne rendent pas Faune-France disponible dans l’interface.
 
 ## Dépannage
 

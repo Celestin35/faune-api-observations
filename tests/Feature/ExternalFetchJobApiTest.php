@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ExternalFetchJob;
 use App\Models\ExternalFetchJobBatch;
+use App\Models\ImportJob;
 use App\Models\MonitoringRule;
 use App\Models\Observation;
 use App\Models\ObservationSource;
@@ -146,6 +147,36 @@ final class ExternalFetchJobApiTest extends TestCase
         self::assertSame(ExternalFetchJob::STATUS_COMPLETED, $job->status);
         self::assertNotNull($job->started_at);
         self::assertNotNull($job->completed_at);
+    }
+
+    #[Test]
+    public function heartbeat_exposes_faune_france_fetch_progress_on_the_import(): void
+    {
+        $import = ImportJob::create([
+            'source' => 'faune-france', 'date_from' => '2026-06-01', 'date_to' => '2026-08-31',
+            'zone_type' => 'france', 'zone_data' => ['type' => 'france'], 'zone_hash' => 'france',
+            'status' => 'pending', 'limit' => 10000,
+        ]);
+        $job = $this->createJob();
+        $job->update(['import_job_id' => $import->id]);
+        $this->bot()->postJson("/api/bot/jobs/{$job->id}/claim")->assertOk();
+
+        $this->bot()->postJson('/api/bot/heartbeat', [
+            'jobId' => $job->id,
+            'progress' => [
+                'stage' => 'fetching',
+                'current' => 42,
+                'total' => 200,
+                'message' => '2160 résultat(s) récupéré(s).',
+            ],
+        ])->assertOk();
+
+        $import->refresh();
+        self::assertSame('running', $import->status);
+        self::assertSame('fetching', $import->progress_stage);
+        self::assertSame(42, $import->progress_current);
+        self::assertSame(200, $import->progress_total);
+        self::assertSame('2160 résultat(s) récupéré(s).', $import->progress_message);
     }
 
     #[Test]

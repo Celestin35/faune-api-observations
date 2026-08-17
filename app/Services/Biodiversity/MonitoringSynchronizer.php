@@ -3,6 +3,7 @@
 namespace App\Services\Biodiversity;
 
 use App\Models\ExternalFetchJob;
+use App\Models\GeographicArea;
 use App\Models\MonitoringRule;
 
 final class MonitoringSynchronizer
@@ -11,18 +12,42 @@ final class MonitoringSynchronizer
 
     public function sync(MonitoringRule $rule): array
     {
-        $from = now()->subMinutes($rule->window_minutes)->toDateString();
-        $to = now()->toDateString();
+        $criteria = new ObservationQueryCriteria(
+            taxon: $rule->taxon,
+            taxonScope: $rule->taxon_scope,
+            taxonomicReferenceVersionId: $rule->taxonomic_reference_version_id,
+            taxonLabelSnapshot: $rule->taxon_label_snapshot,
+            periodType: 'sliding',
+            dateFrom: null,
+            dateTo: null,
+            windowMinutes: $rule->window_minutes,
+            zone: $rule->zone_data,
+            sources: $rule->sources,
+        );
+        $definition = $criteria->resolve();
+        $from = $definition->dateFrom;
+        $to = $definition->dateTo;
         $regularSources = array_values(array_diff($rule->sources, ['faune-france']));
         $jobs = [];
         if ($regularSources !== []) {
-            $definition = new SearchDefinition($rule->taxon, $from, $to, $rule->zone_data, $regularSources,
-                $rule->taxon_scope, $rule->taxonomic_reference_version_id);
-            $jobs = $this->imports->create($definition, null, $rule->id);
+            $regularDefinition = new SearchDefinition($definition->taxon, $from, $to, $definition->zone, $regularSources,
+                $definition->taxonScope, $definition->taxonomicReferenceVersionId);
+            $jobs = $this->imports->create($regularDefinition, null, $rule->id);
         }
         if (in_array('faune-france', $rule->sources, true)) {
             $mapping = $rule->taxon?->mappings()->where('source', 'faune_france')
                 ->where('mapping_status', 'validated')->where('is_preferred', true)->firstOrFail();
+            $spatialPayload = match ($rule->zone_type) {
+                'radius' => ['zone' => [
+                    'type' => 'radius',
+                    'latitude' => (float) $rule->zone_data['latitude'],
+                    'longitude' => (float) $rule->zone_data['longitude'],
+                    'radiusKm' => (float) $rule->zone_data['radius_km'],
+                    ...(! empty($rule->zone_data['address']) ? ['address' => $rule->zone_data['address']] : []),
+                ]],
+                'france' => ['departments' => GeographicArea::fauneFranceDepartmentCodes()],
+                default => ['departments' => $rule->zone_data['department_codes']],
+            };
             $jobs[] = ExternalFetchJob::create([
                 'monitoring_rule_id' => $rule->id,
                 'taxon_id' => $rule->taxon_id,
@@ -38,7 +63,7 @@ final class MonitoringSynchronizer
                     ],
                     'dateFrom' => $from,
                     'dateTo' => $to,
-                    'departments' => $rule->zone_data['department_codes'],
+                    ...$spatialPayload,
                     'maxPages' => (int) config('biodiversity.faune_france_max_pages', 100),
                     'pagePauseMs' => (int) config('biodiversity.faune_france_page_pause_ms', 1500),
                 ],

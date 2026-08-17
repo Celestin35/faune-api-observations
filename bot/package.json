@@ -8,6 +8,7 @@
     "search": "node --env-file-if-exists=.env --import tsx src/search.ts",
     "test-search": "node --env-file-if-exists=.env --import tsx src/test-search.ts",
     "worker": "node --env-file-if-exists=.env --import tsx src/worker.ts",
+    "export-taxa": "node --env-file-if-exists=.env --import tsx src/export-taxa.ts",
     "test": "tsx --test src/*.test.ts",
     "typecheck": "tsc --noEmit",
     "install-browser": "playwright install firefox"

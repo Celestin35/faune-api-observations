@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ExternalFetchJob;
+use App\Models\ImportJob;
 use App\Models\MonitoringRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,12 +40,14 @@ final class ExternalFetchJobController
         if ($claimed !== 1) {
             return response()->json(['message' => 'Cette tâche n’est plus disponible.'], 409);
         }
+        $this->startImport($job->fresh());
 
         return response()->json(['job' => $job->fresh()->botPayload()]);
     }
 
-    public function complete(ExternalFetchJob $job): JsonResponse
+    public function complete(Request $request, ExternalFetchJob $job): JsonResponse
     {
+        $validated = $request->validate(['partial' => ['sometimes', 'boolean']]);
         $completed = ExternalFetchJob::query()
             ->whereKey($job->getKey())
             ->where('source', 'faune-france')
@@ -59,6 +62,7 @@ final class ExternalFetchJobController
         if ($completed !== 1) {
             return response()->json(['message' => 'Cette tâche ne peut pas être terminée dans son état actuel.'], 409);
         }
+        $this->finishImport($job->fresh(), ($validated['partial'] ?? false) ? 'partial' : 'completed');
         $this->completeMonitoring($job->fresh(), null);
 
         return response()->json(['status' => ExternalFetchJob::STATUS_COMPLETED]);
@@ -84,6 +88,10 @@ final class ExternalFetchJobController
         if ($failed !== 1) {
             return response()->json(['message' => 'Cette tâche ne peut pas être mise en échec dans son état actuel.'], 409);
         }
+        $import = $job->fresh()->importJob;
+        if ($import !== null) {
+            $this->finishImport($job->fresh(), $import->processed_count > 0 ? 'partial' : 'failed', $validated['errorMessage']);
+        }
         $this->completeMonitoring($job->fresh(), $validated['errorMessage']);
 
         return response()->json(['status' => ExternalFetchJob::STATUS_FAILED]);
@@ -93,6 +101,11 @@ final class ExternalFetchJobController
     {
         $validated = $request->validate([
             'jobId' => ['nullable', 'integer', 'min:1'],
+            'progress' => ['sometimes', 'array'],
+            'progress.stage' => ['required_with:progress', 'string', 'in:fetching,saving'],
+            'progress.current' => ['required_with:progress', 'integer', 'min:0'],
+            'progress.total' => ['nullable', 'integer', 'min:0'],
+            'progress.message' => ['nullable', 'string', 'max:255'],
         ]);
 
         if (isset($validated['jobId'])) {
@@ -106,6 +119,15 @@ final class ExternalFetchJobController
                     'started_at' => $job->started_at ?? now(),
                     'heartbeat_at' => now(),
                 ]);
+                if (isset($validated['progress']) && $job->import_job_id !== null) {
+                    $progress = $validated['progress'];
+                    ImportJob::query()->whereKey($job->import_job_id)->update([
+                        'progress_stage' => $progress['stage'],
+                        'progress_current' => $progress['current'],
+                        'progress_total' => $progress['total'] ?? null,
+                        'progress_message' => $progress['message'] ?? null,
+                    ]);
+                }
             });
         }
 
@@ -125,6 +147,46 @@ final class ExternalFetchJobController
             'last_synced_at' => now(),
             'next_sync_at' => now()->addMinutes($rule->frequency_minutes),
             'last_error' => $error,
+        ]);
+    }
+
+    private function startImport(ExternalFetchJob $job): void
+    {
+        if ($job->import_job_id === null) {
+            return;
+        }
+        ImportJob::query()->whereKey($job->import_job_id)->where('status', 'pending')->update([
+            'status' => 'running',
+            'progress_stage' => 'fetching',
+            'progress_current' => 0,
+            'progress_total' => (int) ($job->payload['maxPages'] ?? 0) ?: null,
+            'progress_message' => 'Préparation de la recherche Faune-France.',
+            'started_at' => now(),
+            'error_message' => null,
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function finishImport(ExternalFetchJob $job, string $status, ?string $error = null): void
+    {
+        if ($job->import_job_id === null) {
+            return;
+        }
+        $import = ImportJob::find($job->import_job_id);
+        if ($import === null) {
+            return;
+        }
+        $import->update([
+            'status' => $status,
+            'estimated_count' => $status === 'completed' ? $import->processed_count : null,
+            'progress_stage' => 'finished',
+            'progress_current' => $import->processed_count,
+            'progress_total' => $status === 'completed' ? $import->processed_count : null,
+            'progress_message' => $status === 'partial'
+                ? 'Limite de sécurité atteinte : des résultats supplémentaires peuvent exister.'
+                : 'Import terminé.',
+            'error_message' => $error,
+            'finished_at' => now(),
         ]);
     }
 }

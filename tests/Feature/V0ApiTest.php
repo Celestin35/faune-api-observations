@@ -231,6 +231,33 @@ final class V0ApiTest extends TestCase
     }
 
     #[Test]
+    public function faune_france_monitoring_accepts_a_metropolitan_point_and_radius(): void
+    {
+        Queue::fake();
+        $this->seed(DatabaseSeeder::class);
+        $taxonId = Taxon::where('scientific_name', 'Tichodroma muraria')->value('id');
+        $payload = $this->searchPayload($taxonId, [
+            'type' => 'radius', 'address' => 'Rennes, France', 'latitude' => 48.1173,
+            'longitude' => -1.6778, 'radius_km' => 30,
+        ]) + ['name' => 'Veille Faune-France Rennes', 'window_minutes' => 10080, 'frequency_minutes' => 30];
+        $payload['sources'] = ['faune-france'];
+
+        $id = $this->postJson('/api/monitoring', $payload)->assertCreated()->json('data.id');
+        $this->postJson("/api/monitoring/{$id}/sync")->assertAccepted();
+
+        $job = ExternalFetchJob::firstOrFail();
+        self::assertArrayNotHasKey('departments', $job->payload);
+        self::assertSame('radius', $job->payload['zone']['type']);
+        self::assertSame(48.1173, $job->payload['zone']['latitude']);
+        self::assertSame(-1.6778, $job->payload['zone']['longitude']);
+        self::assertSame(30, $job->payload['zone']['radiusKm']);
+        self::assertSame('Rennes, France', $job->payload['zone']['address']);
+
+        $payload['zone'] = ['type' => 'radius', 'latitude' => 16.241, 'longitude' => -61.533, 'radius_km' => 10];
+        $this->postJson('/api/monitoring', $payload)->assertUnprocessable()->assertJsonValidationErrors('sources');
+    }
+
+    #[Test]
     public function imports_gbif_pages_with_a_hard_limit(): void
     {
         $taxon = Taxon::create(['scientific_name' => 'Tichodroma muraria', 'rank' => 'species']);
@@ -261,6 +288,24 @@ final class V0ApiTest extends TestCase
         app()->call([new ImportObservationsJob($job->id), 'handle']);
         self::assertSame(1, $job->fresh()->processed_count);
         self::assertSame('partial', $job->fresh()->status);
+    }
+
+    #[Test]
+    public function inaturalist_uses_memory_safe_pages_and_persists_progress(): void
+    {
+        $taxon = Taxon::create(['scientific_name' => 'Tichodroma muraria', 'rank' => 'species']);
+        $job = $this->importRecord($taxon, 'inaturalist', 50);
+        Http::fake(['api.inaturalist.org/*' => Http::response([
+            'total_results' => 50,
+            'results' => array_map(fn (int $id): array => $this->inatRecord($id), range(1, 50)),
+        ])]);
+
+        app()->call([new ImportObservationsJob($job->id), 'handle']);
+
+        Http::assertSent(fn (Request $request): bool => (int) $request['per_page'] === 50);
+        self::assertSame(50, $job->fresh()->progress_current);
+        self::assertSame(50, $job->fresh()->progress_total);
+        self::assertSame('finished', $job->fresh()->progress_stage);
     }
 
     #[Test]

@@ -31,6 +31,23 @@ final class FauneFranceInboundConnector implements InboundOccurrenceConnector
             sourceUrl: $payload['source_url'] ?? null,
             media: $payload['media'] ?? [],
             rawData: $payload['raw_data'] ?? $payload,
+            locationName: $payload['location_name'] ?? null,
+            remarks: $payload['remarks'] ?? null,
+            temporalPrecision: $payload['temporal_precision'] ?? (isset($payload['observed_at']) ? 'unknown' : 'unknown'),
+            locationStatus: $payload['location_status'] ?? (isset($payload['latitude'], $payload['longitude']) ? 'approximate' : 'unavailable'),
+            sourceLocationPrecision: $payload['source_location_precision'] ?? null,
+            countryCode: $payload['country_code'] ?? null,
+            countryName: $payload['country_name'] ?? null,
+            regionName: $payload['region_name'] ?? null,
+            departmentCode: $payload['department_code'] ?? null,
+            departmentName: $payload['department_name'] ?? null,
+            municipalityCode: $payload['municipality_code'] ?? null,
+            municipalityName: $payload['municipality_name'] ?? null,
+            localityName: $payload['locality_name'] ?? null,
+            observerIsPublic: ($payload['observer_is_public'] ?? false) === true,
+            lifeStage: $payload['life_stage'] ?? null,
+            sex: $payload['sex'] ?? null,
+            behavior: $payload['behavior'] ?? null,
         );
     }
 }

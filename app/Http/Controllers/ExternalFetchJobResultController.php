@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ExternalFetchJob;
 use App\Models\ExternalFetchJobBatch;
+use App\Models\ImportJob;
 use App\Services\Biodiversity\Inbound\FauneFranceRawObservationNormalizer;
 use App\Services\Biodiversity\OccurrencePersister;
 use Illuminate\Http\JsonResponse;
@@ -59,8 +60,11 @@ final class ExternalFetchJobResultController
             }
 
             $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0];
+            $import = $lockedJob->import_job_id !== null
+                ? ImportJob::query()->lockForUpdate()->find($lockedJob->import_job_id)
+                : null;
             foreach ($normalized as $occurrence) {
-                $outcome = $persister->persist($occurrence, null, $lockedJob->monitoring_rule_id);
+                $outcome = $persister->persist($occurrence, $import?->data_collection_id, $lockedJob->monitoring_rule_id);
                 $counts[$outcome->status]++;
             }
             ExternalFetchJobBatch::create([
@@ -76,6 +80,20 @@ final class ExternalFetchJobResultController
                 'started_at' => $lockedJob->started_at ?? now(),
                 'heartbeat_at' => now(),
             ]);
+            if ($import !== null) {
+                $processed = $import->processed_count + count($validated['observations']);
+                $import->update([
+                    'status' => 'running',
+                    'progress_stage' => 'saving',
+                    'progress_current' => $processed,
+                    'started_at' => $import->started_at ?? now(),
+                    'processed_count' => $processed,
+                    'created_count' => $import->created_count + $counts['created'],
+                    'updated_count' => $import->updated_count + $counts['updated'],
+                    'unchanged_count' => $import->unchanged_count + $counts['unchanged'],
+                    'error_message' => null,
+                ]);
+            }
 
             return response()->json(['counts' => $counts, 'replayed' => false]);
         });

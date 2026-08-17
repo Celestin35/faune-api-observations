@@ -20,6 +20,8 @@ final class ConnectorNormalizationTest extends TestCase
         self::assertSame('https://www.inaturalist.org/observations/334329012', $occurrence->sourceOccurrenceId);
         self::assertSame('Tichodromidae', $occurrence->classification['family']);
         self::assertSame(4.0, $occurrence->coordinateUncertaintyM);
+        self::assertSame('approximate', $occurrence->locationStatus);
+        self::assertSame('datetime', $occurrence->temporalPrecision);
         self::assertSame('https://example.test/photo.jpg', $occurrence->media[0]['url']);
     }
 
@@ -33,6 +35,8 @@ final class ConnectorNormalizationTest extends TestCase
         self::assertSame(43.831119, $occurrence->latitude);
         self::assertSame(3.309553, $occurrence->longitude);
         self::assertSame('research', $occurrence->validationStatus);
+        self::assertSame('approximate', $occurrence->locationStatus);
+        self::assertTrue($occurrence->observerIsPublic);
         self::assertSame('https://example.test/square.jpg', $occurrence->media[0]['url']);
     }
 

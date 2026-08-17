@@ -17,6 +17,13 @@ export interface BatchResponse {
   replayed: boolean;
 }
 
+export interface WorkerProgress {
+  stage: "fetching" | "saving";
+  current: number;
+  total: number | null;
+  message?: string;
+}
+
 export class LaravelApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -57,9 +64,9 @@ export interface WorkerApi {
   nextJob(): Promise<SearchJob | null>;
   claim(jobId: string): Promise<SearchJob>;
   sendResults(jobId: string, batchNumber: number, isLastBatch: boolean, observations: unknown[]): Promise<BatchResponse>;
-  complete(jobId: string): Promise<void>;
+  complete(jobId: string, partial?: boolean): Promise<void>;
   fail(jobId: string, errorMessage: string): Promise<void>;
-  heartbeat(jobId?: string): Promise<void>;
+  heartbeat(jobId?: string, progress?: WorkerProgress): Promise<void>;
 }
 
 export class LaravelBotApi implements WorkerApi {
@@ -97,8 +104,8 @@ export class LaravelBotApi implements WorkerApi {
     return { counts, replayed: response.replayed === true };
   }
 
-  async complete(jobId: string): Promise<void> {
-    await this.request("POST", `/api/bot/jobs/${encodeURIComponent(jobId)}/complete`);
+  async complete(jobId: string, partial = false): Promise<void> {
+    await this.request("POST", `/api/bot/jobs/${encodeURIComponent(jobId)}/complete`, { partial });
   }
 
   async fail(jobId: string, errorMessage: string): Promise<void> {
@@ -107,8 +114,11 @@ export class LaravelBotApi implements WorkerApi {
     });
   }
 
-  async heartbeat(jobId?: string): Promise<void> {
-    await this.request("POST", "/api/bot/heartbeat", jobId ? { jobId } : {});
+  async heartbeat(jobId?: string, progress?: WorkerProgress): Promise<void> {
+    await this.request("POST", "/api/bot/heartbeat", {
+      ...(jobId ? { jobId } : {}),
+      ...(progress ? { progress } : {})
+    });
   }
 
   private async request(method: "GET" | "POST", route: string, body?: unknown): Promise<unknown> {

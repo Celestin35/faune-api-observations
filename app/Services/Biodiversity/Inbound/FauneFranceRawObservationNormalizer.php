@@ -25,6 +25,17 @@ final class FauneFranceRawObservationNormalizer
         if (($latitude === null) !== ($longitude === null)) {
             throw new InvalidArgumentException('Les coordonnées Faune-France sont incomplètes.');
         }
+        $hidden = $this->truthy($raw['is_hidden'] ?? null) || $this->truthy($raw['is_admin_hidden'] ?? null);
+        $precision = $this->text($observerInfo['precision'] ?? $raw['precision'] ?? null);
+        $locationStatus = $latitude === null || $longitude === null
+            ? 'unavailable'
+            : ($hidden ? 'source_masked' : (strtolower((string) $precision) === 'precise' ? 'exact' : 'approximate'));
+        if ($hidden) {
+            $latitude = null;
+            $longitude = null;
+        }
+        $observedAt = $this->observedAt($raw, $observerInfo);
+        $locationName = $this->stripMarkup($raw['listSubmenu']['title'] ?? $raw['location'] ?? null);
 
         return new NormalizedOccurrence(
             source: 'faune-france',
@@ -34,7 +45,7 @@ final class FauneFranceRawObservationNormalizer
             vernacularName: $taxon['vernacularName'],
             sourceTaxonId: $taxon['fauneFranceId'],
             classification: [$taxon['rank'] => $taxon['scientificName']],
-            observedAt: $this->observedAt($raw, $observerInfo),
+            observedAt: $observedAt,
             sourceCreatedAt: null,
             sourceUpdatedAt: null,
             publishedAt: null,
@@ -48,8 +59,16 @@ final class FauneFranceRawObservationNormalizer
             sourceUrl: $this->sourceUrl($raw),
             media: [],
             rawData: $raw,
-            locationName: $this->stripMarkup($raw['listSubmenu']['title'] ?? $raw['location'] ?? null),
+            locationName: $locationName,
             remarks: $this->remarks($raw['remarks'] ?? null),
+            temporalPrecision: $this->hasExplicitTime($raw, $observerInfo) ? 'datetime' : ($observedAt !== null ? 'date' : 'unknown'),
+            locationStatus: $locationStatus,
+            sourceLocationPrecision: $precision,
+            localityName: $locationName,
+            observerIsPublic: false,
+            lifeStage: $this->stripMarkup($observerInfo['life_stage'] ?? $raw['life_stage'] ?? null),
+            sex: $this->stripMarkup($observerInfo['sex'] ?? $raw['sex'] ?? null),
+            behavior: $this->stripMarkup($observerInfo['behavior'] ?? $raw['behavior'] ?? null),
         );
     }
 
@@ -98,6 +117,19 @@ final class FauneFranceRawObservationNormalizer
         }
 
         return null;
+    }
+
+    /** @param array<string, mixed> $raw @param array<string, mixed> $observerInfo */
+    private function hasExplicitTime(array $raw, array $observerInfo): bool
+    {
+        $time = $this->stripMarkup($observerInfo['timing'] ?? $raw['timing'] ?? $raw['time'] ?? null);
+
+        return preg_match('/\b(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?\b/', $time ?? '') === 1;
+    }
+
+    private function truthy(mixed $value): bool
+    {
+        return in_array($value, [true, 1, '1', 'true'], true);
     }
 
     private function count(mixed $value): ?int

@@ -36,6 +36,14 @@ export interface SearchRunResult {
   observations: unknown[];
 }
 
+export interface SearchProgress {
+  page: number;
+  maxPages: number;
+  entries: number;
+}
+
+export type SearchProgressReporter = (progress: SearchProgress) => Promise<void> | void;
+
 interface SearchAttemptResult {
   initialization: Awaited<ReturnType<typeof postFromPage>>;
   combinedData: unknown[];
@@ -45,7 +53,6 @@ interface SearchAttemptResult {
     dataIsFinished: { value: boolean | number | string; type: "boolean" | "number" | "string"; finished: boolean };
     repeated: boolean;
   }>;
-  rawPages: Array<{ page: number; body: string }>;
   truncatedBySafetyLimit: boolean;
   stopReason: string | null;
 }
@@ -66,28 +73,42 @@ export async function runWithAuthenticationRetry<T>(
   }
 }
 
-async function performSearchAttempt(page: Page, job: SearchJob): Promise<SearchAttemptResult> {
+async function performSearchAttempt(
+  page: Page,
+  job: SearchJob,
+  reportProgress?: SearchProgressReporter,
+  artifactDirectory?: string
+): Promise<SearchAttemptResult> {
   console.log("Initialisation de la recherche via m_id=94…");
   const initialization = await postFromPage(page, SEARCH_URL, buildSearchParameters(job, 1), false);
   assertSuccessfulResponse(initialization, "Initialisation m_id=94");
   await assertLiveAuthenticatedSession(page, "Initialisation m_id=94");
   console.log(`Initialisation réussie : HTTP ${initialization.status}, ${initialization.contentType || "type inconnu"}.`);
+  const initializationPauseMs = Math.max(1_500, job.pagePauseMs);
+  console.log(`Pause de ${initializationPauseMs} ms pour laisser Faune-France préparer les résultats…`);
+  await pause(initializationPauseMs);
 
   const combinedData: unknown[] = [];
   const pages: SearchAttemptResult["pages"] = [];
-  const rawPages: SearchAttemptResult["rawPages"] = [];
   let previousFingerprint: string | null = null;
   let truncatedBySafetyLimit = false;
   let stopReason: string | null = null;
 
   for (let pageNumber = 1; pageNumber <= job.maxPages; pageNumber += 1) {
     console.log(`Récupération de la page ${pageNumber}/${job.maxPages} via m_id=1351…`);
-    const response = await postFromPage(page, RESULTS_URL, buildSearchParameters(job, pageNumber), true);
+    let response = await postFromPage(page, RESULTS_URL, buildSearchParameters(job, pageNumber), true);
+    if (response.status === 200 && response.body.trim() === "") {
+      console.log(`Page ${pageNumber} encore vide côté Faune-France, nouvelle tentative unique après ${initializationPauseMs} ms…`);
+      await pause(initializationPauseMs);
+      response = await postFromPage(page, RESULTS_URL, buildSearchParameters(job, pageNumber), true);
+    }
     await assertLiveAuthenticatedSession(page, `Résultats page ${pageNumber}`);
     const payload = parseResultsResponse(response, pageNumber);
     const decision = decidePagination(payload, pageNumber, job.maxPages, previousFingerprint);
 
-    rawPages.push({ page: pageNumber, body: response.body });
+    if (artifactDirectory) {
+      await writeFile(path.join(artifactDirectory, `page-${pageNumber}.raw.json`), response.body, "utf8");
+    }
     pages.push({
       page: pageNumber,
       entries: payload.data.length,
@@ -98,6 +119,7 @@ async function performSearchAttempt(page: Page, job: SearchJob): Promise<SearchA
       combinedData.push(...payload.data);
     }
     console.log(`Page ${pageNumber} reçue : ${payload.data.length} entrée(s), data_is_finished=${JSON.stringify(decision.dataIsFinished.value)} (${decision.dataIsFinished.type}).`);
+    await reportProgress?.({ page: pageNumber, maxPages: job.maxPages, entries: combinedData.length });
 
     if (!decision.continue) {
       stopReason = decision.stopReason;
@@ -109,10 +131,15 @@ async function performSearchAttempt(page: Page, job: SearchJob): Promise<SearchA
     await pause(job.pagePauseMs);
   }
 
-  return { initialization, combinedData, pages, rawPages, truncatedBySafetyLimit, stopReason };
+  return { initialization, combinedData, pages, truncatedBySafetyLimit, stopReason };
 }
 
-export async function runSearchJob(job: SearchJob, headless = true): Promise<SearchRunResult> {
+export async function runSearchJob(
+  job: SearchJob,
+  headless = true,
+  reportProgress?: SearchProgressReporter,
+  persistArtifacts = true
+): Promise<SearchRunResult> {
   await mkdir(PROFILE_DIR, { recursive: true });
   const jobOutputDirectory = path.join(OUTPUT_DIR, job.jobId);
   await mkdir(jobOutputDirectory, { recursive: true });
@@ -122,7 +149,10 @@ export async function runSearchJob(job: SearchJob, headless = true): Promise<Sea
   console.log(`Tâche : ${job.jobId}`);
   console.log(`Profil réutilisé : ${PROFILE_DIR}`);
   console.log(`Sorties de ce lancement : ${runDirectory}`);
-  console.log(`Recherche : ${job.taxon.vernacularName} (${job.taxon.scientificName}, sp_S=${job.taxon.fauneFranceId}), ${job.dateFrom} → ${job.dateTo}, départements ${job.departments.join(", ")}.`);
+  const spatialDescription = job.zone
+    ? `point ${job.zone.latitude}, ${job.zone.longitude}, rayon ${job.zone.radiusKm} km (polygone Faune-France)`
+    : `départements ${job.departments.join(", ")}`;
+  console.log(`Recherche : ${job.taxon.vernacularName} (${job.taxon.scientificName}, sp_S=${job.taxon.fauneFranceId}), ${job.dateFrom} → ${job.dateTo}, ${spatialDescription}.`);
 
   const context = await firefox.launchPersistentContext(PROFILE_DIR, { headless });
   try {
@@ -130,16 +160,14 @@ export async function runSearchJob(job: SearchJob, headless = true): Promise<Sea
     const authenticator = new FauneFranceAuthenticator();
     const attempt = await runWithAuthenticationRetry(
       () => authenticator.ensureAuthenticated(page),
-      () => performSearchAttempt(page, job)
+      () => performSearchAttempt(page, job, reportProgress, persistArtifacts ? runDirectory : undefined)
     );
-    const { initialization, combinedData, pages, rawPages, truncatedBySafetyLimit, stopReason } = attempt;
-
-    for (const rawPage of rawPages) {
-      await writeFile(path.join(runDirectory, `page-${rawPage.page}.raw.json`), rawPage.body, "utf8");
-    }
+    const { initialization, combinedData, pages, truncatedBySafetyLimit, stopReason } = attempt;
 
     const combinedPath = path.join(runDirectory, "combined-data.json");
-    await writeFile(combinedPath, `${JSON.stringify(combinedData, null, 2)}\n`, "utf8");
+    if (persistArtifacts) {
+      await writeFile(combinedPath, `${JSON.stringify(combinedData)}\n`, "utf8");
+    }
 
     const analysis = analyzeRawEntry(combinedData[0]);
     const summary = {
@@ -149,7 +177,7 @@ export async function runSearchJob(job: SearchJob, headless = true): Promise<Sea
       filters: {
         dateFrom: job.dateFrom,
         dateTo: job.dateTo,
-        departments: job.departments,
+        ...(job.zone ? { zone: job.zone } : { departments: job.departments }),
         maxPages: job.maxPages,
         pagePauseMs: job.pagePauseMs
       },
@@ -163,11 +191,15 @@ export async function runSearchJob(job: SearchJob, headless = true): Promise<Sea
       },
       firstEntry: analysis
     };
-    await writeFile(path.join(runDirectory, "run-summary.json"), `${JSON.stringify(summary, null, 2)}\n`, "utf8");
+    if (persistArtifacts) {
+      await writeFile(path.join(runDirectory, "run-summary.json"), `${JSON.stringify(summary, null, 2)}\n`, "utf8");
+    }
 
     console.log(`Terminé : ${pages.length} page(s), ${combinedData.length} entrée(s) brutes, arrêt=${stopReason}.`);
     console.log(`Résultats tronqués par la limite de sécurité : ${truncatedBySafetyLimit ? "oui" : "non"}.`);
-    console.log(`Données combinées : ${combinedPath}`);
+    if (persistArtifacts) {
+      console.log(`Données combinées : ${combinedPath}`);
+    }
     if (combinedData.length === 0) {
       console.log("Aucune entrée brute : la structure et les coordonnées ne peuvent pas être déterminées sur cette recherche.");
     } else {

@@ -20,6 +20,7 @@ final class Observation extends Model
             'first_imported_at' => 'immutable_datetime',
             'last_seen_at' => 'immutable_datetime',
             'retain_until' => 'immutable_datetime',
+            'geography_resolved_at' => 'immutable_datetime',
             'latitude' => 'float', 'longitude' => 'float',
             'coordinate_uncertainty_m' => 'float',
         ];
@@ -37,11 +38,11 @@ final class Observation extends Model
 
     public function collections(): BelongsToMany
     {
-        return $this->belongsToMany(DataCollection::class, 'collection_observations');
+        return $this->belongsToMany(DataCollection::class, 'collection_observations')->withPivot('attached_at');
     }
 
     public function monitoringRules(): BelongsToMany
     {
-        return $this->belongsToMany(MonitoringRule::class, 'monitoring_rule_observations');
+        return $this->belongsToMany(MonitoringRule::class, 'monitoring_rule_observations')->withPivot('detected_at');
     }
 }

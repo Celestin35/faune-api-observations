@@ -35,6 +35,21 @@ final readonly class NormalizedOccurrence implements JsonSerializable
         public array $rawData,
         public ?string $locationName = null,
         public ?string $remarks = null,
+        public string $temporalPrecision = 'unknown',
+        public string $locationStatus = 'unavailable',
+        public ?string $sourceLocationPrecision = null,
+        public ?string $countryCode = null,
+        public ?string $countryName = null,
+        public ?string $regionName = null,
+        public ?string $departmentCode = null,
+        public ?string $departmentName = null,
+        public ?string $municipalityCode = null,
+        public ?string $municipalityName = null,
+        public ?string $localityName = null,
+        public bool $observerIsPublic = false,
+        public ?string $lifeStage = null,
+        public ?string $sex = null,
+        public ?string $behavior = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -64,6 +79,21 @@ final readonly class NormalizedOccurrence implements JsonSerializable
             'raw_data' => $this->rawData,
             'location_name' => $this->locationName,
             'remarks' => $this->remarks,
+            'temporal_precision' => $this->temporalPrecision,
+            'location_status' => $this->locationStatus,
+            'source_location_precision' => $this->sourceLocationPrecision,
+            'country_code' => $this->countryCode,
+            'country_name' => $this->countryName,
+            'region_name' => $this->regionName,
+            'department_code' => $this->departmentCode,
+            'department_name' => $this->departmentName,
+            'municipality_code' => $this->municipalityCode,
+            'municipality_name' => $this->municipalityName,
+            'locality_name' => $this->localityName,
+            'observer_is_public' => $this->observerIsPublic,
+            'life_stage' => $this->lifeStage,
+            'sex' => $this->sex,
+            'behavior' => $this->behavior,
         ];
     }
 }

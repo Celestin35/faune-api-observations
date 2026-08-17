@@ -31,7 +31,8 @@ export interface SearchParameterInput {
   taxon: { fauneFranceId: string };
   dateFrom: string;
   dateTo: string;
-  departments: string[];
+  departments?: string[];
+  zone?: { type: "radius"; latitude: number; longitude: number; radiusKm: number };
 }
 
 export class SessionExpiredError extends Error {
@@ -41,7 +42,50 @@ export class SessionExpiredError extends Error {
   }
 }
 
+export function buildRadiusPolygonWkt(latitude: number, longitude: number, radiusKm: number, vertexCount = 64): string {
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+      !Number.isFinite(longitude) || longitude < -180 || longitude > 180 ||
+      !Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm > 200) {
+    throw new Error("Coordonnées ou rayon invalides pour le polygone Faune-France.");
+  }
+  if (!Number.isInteger(vertexCount) || vertexCount < 8 || vertexCount > 360) {
+    throw new Error("Le polygone Faune-France doit contenir entre 8 et 360 sommets.");
+  }
+
+  const angularDistance = radiusKm / 6371.0088;
+  const startLatitude = latitude * Math.PI / 180;
+  const startLongitude = longitude * Math.PI / 180;
+  const coordinates: Array<[number, number]> = [];
+
+  for (let index = 0; index < vertexCount; index += 1) {
+    const bearing = 2 * Math.PI * index / vertexCount;
+    const targetLatitude = Math.asin(
+      Math.sin(startLatitude) * Math.cos(angularDistance) +
+      Math.cos(startLatitude) * Math.sin(angularDistance) * Math.cos(bearing)
+    );
+    const targetLongitude = startLongitude + Math.atan2(
+      Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(startLatitude),
+      Math.cos(angularDistance) - Math.sin(startLatitude) * Math.sin(targetLatitude)
+    );
+    const normalizedLongitude = ((targetLongitude * 180 / Math.PI + 540) % 360) - 180;
+    coordinates.push([normalizedLongitude, targetLatitude * 180 / Math.PI]);
+  }
+  coordinates.push(coordinates[0]);
+
+  return `POLYGON((${coordinates.map(([lon, lat]) => `${lon.toFixed(7)} ${lat.toFixed(7)}`).join(",")}))`;
+}
+
 export function buildSearchParameters(config: SearchParameterInput, page: number): URLSearchParams {
+  const spatialParameters: Record<string, string> = config.zone?.type === "radius"
+    ? {
+        sp_PChoice: "polygon",
+        sp_Polygon: buildRadiusPolygonWkt(config.zone.latitude, config.zone.longitude, config.zone.radiusKm)
+      }
+    : {
+        sp_PChoice: "canton",
+        sp_cC: buildDepartmentMask(config.departments ?? [])
+      };
+
   return new URLSearchParams({
     backlink: "skip",
     p_c: "duration",
@@ -53,8 +97,7 @@ export function buildSearchParameters(config: SearchParameterInput, page: number
     sp_DCa: "0",
     sp_SChoice: "species",
     sp_S: config.taxon.fauneFranceId,
-    sp_PChoice: "canton",
-    sp_cC: buildDepartmentMask(config.departments),
+    ...spatialParameters,
     sp_project: "0",
     sp_FChoice: "list",
     sp_FDisplay: "DATE_PLACE_SPECIES",

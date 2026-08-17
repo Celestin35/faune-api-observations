@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { BatchResponse, WorkerApi } from "./api-client.js";
+import type { BatchResponse, WorkerApi, WorkerProgress } from "./api-client.js";
 import type { SearchJob } from "./job.js";
 import type { SearchRunResult } from "./search-runner.js";
 import { processNextJob } from "./worker-core.js";
@@ -27,6 +27,7 @@ class SimulatedApi implements WorkerApi {
   availableJob: SearchJob | null = job();
   claimed: string[] = [];
   heartbeats: string[] = [];
+  progress: WorkerProgress[] = [];
   batches: Array<{ number: number; last: boolean; observations: unknown[] }> = [];
   completed: string[] = [];
   failed: Array<{ jobId: string; message: string }> = [];
@@ -53,9 +54,12 @@ class SimulatedApi implements WorkerApi {
     this.failed.push({ jobId, message: errorMessage });
   }
 
-  async heartbeat(jobId?: string): Promise<void> {
+  async heartbeat(jobId?: string, progress?: WorkerProgress): Promise<void> {
     if (jobId) {
       this.heartbeats.push(jobId);
+    }
+    if (progress) {
+      this.progress.push(progress);
     }
   }
 }
@@ -87,6 +91,12 @@ test("le worker simulé réserve, découpe en lots de 100 et termine la tâche",
   assert.deepEqual(api.completed, ["42"]);
   assert.deepEqual(api.failed, []);
   assert.equal(result.counts?.created, 205);
+  assert.deepEqual(api.progress.map((progress) => [progress.stage, progress.current, progress.total]), [
+    ["saving", 0, 205],
+    ["saving", 100, 205],
+    ["saving", 200, 205],
+    ["saving", 205, 205]
+  ]);
 });
 
 test("le worker simulé reste inactif lorsque Laravel ne renvoie aucune tâche", async () => {

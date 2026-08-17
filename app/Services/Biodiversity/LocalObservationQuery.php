@@ -22,7 +22,9 @@ final class LocalObservationQuery
                 $query->where('taxon_id', $definition->taxon->id);
             }
         }
-        if ($definition->zoneType() === 'radius') {
+        if ($definition->zoneType() === 'france') {
+            $query->where('country_code', 'FR');
+        } elseif ($definition->zoneType() === 'radius') {
             $degrees = $definition->zone['radius_km'] / 111;
             $query->whereBetween('latitude', [$definition->zone['latitude'] - $degrees, $definition->zone['latitude'] + $degrees])
                 ->whereBetween('longitude', [$definition->zone['longitude'] - $degrees, $definition->zone['longitude'] + $degrees]);

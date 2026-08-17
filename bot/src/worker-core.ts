@@ -72,16 +72,28 @@ export async function processNextJob(
     const batches = resultBatches(searchResult.observations);
     const totals: BatchCounts = { created: 0, updated: 0, unchanged: 0 };
 
+    await api.heartbeat(job.jobId, {
+      stage: "saving",
+      current: 0,
+      total: searchResult.observations.length,
+      message: "Enregistrement des observations dans la base."
+    });
+
     for (const [index, observations] of batches.entries()) {
       const response = await api.sendResults(job.jobId, index + 1, index === batches.length - 1, observations);
       totals.created += response.counts.created;
       totals.updated += response.counts.updated;
       totals.unchanged += response.counts.unchanged;
       logger.log(`Tâche ${job.jobId}, lot ${index + 1}/${batches.length} envoyé (${observations.length} observation(s)).`);
-      await api.heartbeat(job.jobId);
+      await api.heartbeat(job.jobId, {
+        stage: "saving",
+        current: Math.min((index + 1) * 100, searchResult.observations.length),
+        total: searchResult.observations.length,
+        message: "Enregistrement des observations dans la base."
+      });
     }
 
-    await api.complete(job.jobId);
+    await api.complete(job.jobId, searchResult.truncatedBySafetyLimit);
     logger.log(`Tâche ${job.jobId} terminée : ${totals.created} créée(s), ${totals.updated} mise(s) à jour, ${totals.unchanged} inchangée(s).`);
     return { status: "completed", jobId: job.jobId, counts: totals };
   } catch (error) {

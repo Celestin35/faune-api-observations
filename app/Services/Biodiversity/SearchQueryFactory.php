@@ -17,6 +17,10 @@ final class SearchQueryFactory
             ->where('source', TaxonSourceMapping::normalizeSource($source))
             ->where('mapping_status', 'validated')->where('is_preferred', true)->whereNull('valid_to')
             ->value('source_taxon_id');
+        if ($definition->zoneType() === 'france') {
+            return [new OccurrenceQuery(taxon: $taxon, from: $definition->dateFrom, to: $definition->dateTo,
+                country: 'FR', sourceTaxonId: $sourceTaxonId)];
+        }
         if ($definition->zoneType() === 'radius') {
             return [new OccurrenceQuery(taxon: $taxon, from: $definition->dateFrom, to: $definition->dateTo,
                 latitude: $definition->zone['latitude'], longitude: $definition->zone['longitude'],

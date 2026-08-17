@@ -18,7 +18,18 @@ async function main(): Promise<void> {
   console.log(`Worker Faune-France démarré. Laravel : ${config.apiUrl}. Intervalle : ${config.pollIntervalMs} ms.`);
   while (!stopping) {
     try {
-      await processNextJob(api, (job) => runSearchJob(job, true));
+      await processNextJob(api, (job) => runSearchJob(job, true, async (progress) => {
+        try {
+          await api.heartbeat(job.jobId, {
+            stage: "fetching",
+            current: progress.page,
+            total: progress.maxPages,
+            message: `${progress.entries} résultat(s) récupéré(s).`
+          });
+        } catch (error) {
+          console.error(`Progression de la tâche ${job.jobId} non transmise : ${error instanceof Error ? error.message : "erreur inconnue"}.`);
+        }
+      }, false));
     } catch (error) {
       console.error(`Erreur pendant le polling Laravel : ${error instanceof Error ? error.message : "erreur inconnue"}.`);
     }

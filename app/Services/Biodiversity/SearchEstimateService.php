@@ -22,6 +22,16 @@ final class SearchEstimateService
         $local = $this->local->results($definition);
         $external = [];
         foreach ($definition->sources as $source) {
+            if ($source === 'faune-france') {
+                $external[$source] = [
+                    'available' => true,
+                    'estimable' => false,
+                    'count' => null,
+                    'message' => 'Estimation indisponible pour Faune-France. Le nombre de résultats sera connu pendant la récupération.',
+                ];
+
+                continue;
+            }
             try {
                 $external[$source] = array_sum(array_map(
                     fn ($query): int => $source === 'gbif' ? $this->gbif->count($query) : $this->inaturalist->count($query),

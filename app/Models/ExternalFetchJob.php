@@ -18,6 +18,8 @@ final class ExternalFetchJob extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    public const STATUS_CANCELLED = 'cancelled';
+
     protected $guarded = [];
 
     protected function casts(): array
@@ -40,6 +42,11 @@ final class ExternalFetchJob extends Model
     public function monitoringRule(): BelongsTo
     {
         return $this->belongsTo(MonitoringRule::class);
+    }
+
+    public function importJob(): BelongsTo
+    {
+        return $this->belongsTo(ImportJob::class);
     }
 
     /** @return array<string, mixed> */
