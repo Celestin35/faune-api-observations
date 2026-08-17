@@ -12,9 +12,9 @@ final class ObservationMapResource extends JsonResource
         return [
             'id' => $this->id,
             'taxon' => $this->taxon === null ? null : [
-                'frenchName' => $this->taxon->preferred_french_name ?: $this->taxon->vernacular_name,
+                'frenchName' => $this->taxon->frenchName(),
                 'scientificName' => $this->taxon->accepted_scientific_name ?: $this->taxon->scientific_name,
-                'vernacular_name' => $this->taxon->preferred_french_name ?: $this->taxon->vernacular_name,
+                'vernacular_name' => $this->taxon->frenchName(),
                 'scientific_name' => $this->taxon->accepted_scientific_name ?: $this->taxon->scientific_name,
             ],
             'observedAt' => $this->observed_at?->toIso8601String(),

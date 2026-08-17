@@ -38,6 +38,22 @@ final class Taxon extends Model
         return $this->rank_code === 'species' || $this->rank === 'species' ? 'exact' : 'subtree';
     }
 
+    public function frenchName(): ?string
+    {
+        if (is_string($this->preferred_french_name) && trim($this->preferred_french_name) !== '') {
+            return $this->preferred_french_name;
+        }
+
+        // A vernacular name coming from GBIF or iNaturalist is not guaranteed
+        // to be French. Only use the compatibility field for curated taxa.
+        if ($this->taxonomic_status !== 'local_unresolved'
+            && is_string($this->vernacular_name) && trim($this->vernacular_name) !== '') {
+            return $this->vernacular_name;
+        }
+
+        return null;
+    }
+
     public function mappings(): HasMany
     {
         return $this->hasMany(TaxonSourceMapping::class);

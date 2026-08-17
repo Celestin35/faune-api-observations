@@ -24,7 +24,10 @@ final class OccurrencePersister
 
     private const TEMPORAL_PRIORITY = ['unknown' => 0, 'date' => 1, 'datetime' => 2];
 
-    public function __construct(private DeduplicationHints $hints, private TaxonNameNormalizer $nameNormalizer) {}
+    public function __construct(
+        private DeduplicationHints $hints,
+        private CanonicalTaxonMatcher $canonicalTaxonMatcher,
+    ) {}
 
     public function persist(NormalizedOccurrence $item, ?int $collectionId = null, ?int $monitoringRuleId = null): PersistOutcome
     {
@@ -307,17 +310,8 @@ final class OccurrencePersister
             return null;
         }
         $rank = array_key_last($item->classification);
-        $normalized = $this->nameNormalizer->normalize($item->scientificName);
-        $candidates = Taxon::query()->whereIn('id', DB::table('taxon_names')
-            ->where('normalized_name', $normalized)->select('taxon_id'))->limit(10)->get();
-        if ($rank !== null) {
-            $ranked = $candidates->filter(fn (Taxon $candidate): bool => ($candidate->rank_code ?? $candidate->rank) === $rank);
-            if ($ranked->isNotEmpty()) {
-                $candidates = $ranked;
-            }
-        }
-        $taxon = $candidates->count() === 1 ? $candidates->first() : null;
-        if ($taxon === null && $candidates->isEmpty()) {
+        $taxon = $this->canonicalTaxonMatcher->match($item->scientificName, $item->classification, $rank);
+        if ($taxon === null) {
             $taxon = Taxon::query()->whereNull('taxref_version_id')->where('scientific_name', $item->scientificName)->firstOrCreate([
                 'scientific_name' => $item->scientificName,
             ], [
@@ -326,9 +320,6 @@ final class OccurrencePersister
                 'classification' => $item->classification,
                 'taxonomic_status' => 'local_unresolved',
             ]);
-        }
-        if ($taxon === null) {
-            return null;
         }
         if ($item->sourceTaxonId !== null) {
             TaxonSourceMapping::updateOrCreate([
@@ -339,8 +330,8 @@ final class OccurrencePersister
                 'source_scientific_name' => $item->scientificName,
                 'source_rank' => $rank,
                 'mapping_status' => 'candidate',
-                'match_type' => 'exact_name',
-                'confidence' => .8,
+                'match_type' => $taxon->isCanonical() ? 'taxref_scientific_name' : 'exact_name',
+                'confidence' => $taxon->isCanonical() ? .95 : .8,
                 'is_preferred' => false,
                 'raw_data' => [],
             ]);

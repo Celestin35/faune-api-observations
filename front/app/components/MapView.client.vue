@@ -11,7 +11,12 @@ type Observation = {
   observed_at: string | null
   validation_status: string | null
   taxonGroup?: TaxonGroup | null
-  taxon?: { scientific_name: string; vernacular_name?: string }
+  taxon?: {
+    frenchName?: string | null
+    scientificName?: string | null
+    scientific_name?: string | null
+    vernacular_name?: string | null
+  }
   sources: Array<{ source: string; source_url?: string }>
 }
 
@@ -76,8 +81,8 @@ const geojson = computed(() => ({
       },
       properties: {
         id: observation.id,
-        name: observation.taxon?.vernacular_name || observation.taxon?.scientific_name || 'Observation',
-        scientific: observation.taxon?.scientific_name || '',
+        name: observation.taxon?.frenchName || observation.taxon?.vernacular_name || 'Nom français non renseigné',
+        scientific: observation.taxon?.scientificName || observation.taxon?.scientific_name || '',
         date: observation.observed_at ? new Date(observation.observed_at).toLocaleDateString('fr-FR') : 'Date inconnue',
         sources: observation.sources.map(source => source.source).join(', '),
         group: groupLabel(observation),

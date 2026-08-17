@@ -35,7 +35,7 @@ type Source = {
 }
 type ObservationDetail = {
   id: number
-  taxon: null | { id: number, frenchName?: string | null, scientificName: string, rank?: string | null, lineage: Array<{ id: number, scientificName: string, rank?: string | null }> }
+  taxon: null | { id: number, frenchName?: string | null, scientificName: string, rank?: string | null, lineage: Array<{ id: number, frenchName?: string | null, scientificName: string, rank?: string | null }> }
   observedAt?: string | null
   temporalPrecision?: string | null
   location: DetailLocation
@@ -93,7 +93,7 @@ try {
   loading.value = false
 }
 
-useHead(() => ({ title: observation.value ? `${observation.value.taxon?.frenchName || observation.value.taxon?.scientificName || 'Observation'} — Observations` : 'Observation' }))
+useHead(() => ({ title: observation.value ? `${observation.value.taxon?.frenchName || 'Nom français non renseigné'} — Observations` : 'Observation' }))
 </script>
 
 <template>
@@ -111,7 +111,7 @@ useHead(() => ({ title: observation.value ? `${observation.value.taxon?.frenchNa
     <template v-else-if="observation">
       <header class="observation-heading">
         <div>
-          <h1>{{ observation.taxon?.frenchName || observation.taxon?.scientificName || 'Observation' }}</h1>
+          <h1>{{ observation.taxon?.frenchName || 'Nom français non renseigné' }}</h1>
           <p v-if="observation.taxon?.scientificName" class="scientific-name"><em>{{ observation.taxon.scientificName }}</em></p>
           <p>{{ formatDate(observation.observedAt) }} · {{ temporalLabels[observation.temporalPrecision || 'unknown'] || observation.temporalPrecision }}</p>
         </div>
@@ -159,12 +159,15 @@ useHead(() => ({ title: observation.value ? `${observation.value.taxon?.frenchNa
         <article class="card">
           <h2>Taxonomie</h2>
           <dl class="detail-list">
-            <template v-if="observation.taxon?.frenchName"><dt>Nom français</dt><dd>{{ observation.taxon.frenchName }}</dd></template>
+            <dt>Nom français</dt><dd>{{ observation.taxon?.frenchName || 'Non renseigné dans TAXREF' }}</dd>
             <template v-if="observation.taxon?.scientificName"><dt>Nom scientifique</dt><dd><em>{{ observation.taxon.scientificName }}</em></dd></template>
             <template v-if="observation.taxon?.rank"><dt>Rang</dt><dd>{{ observation.taxon.rank }}</dd></template>
           </dl>
           <ol v-if="observation.taxon?.lineage.length" class="taxon-lineage">
-            <li v-for="ancestor in observation.taxon.lineage" :key="ancestor.id">{{ ancestor.rank ? `${ancestor.rank} — ` : '' }}<em>{{ ancestor.scientificName }}</em></li>
+            <li v-for="ancestor in observation.taxon.lineage" :key="ancestor.id">
+              {{ ancestor.rank ? `${ancestor.rank} — ` : '' }}{{ ancestor.frenchName || 'Nom français non renseigné' }}
+              <template v-if="ancestor.scientificName"> (<em>{{ ancestor.scientificName }}</em>)</template>
+            </li>
           </ol>
           <p v-else class="muted">Lignée TAXREF non renseignée.</p>
         </article>

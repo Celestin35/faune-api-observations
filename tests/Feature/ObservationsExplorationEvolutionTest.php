@@ -161,7 +161,7 @@ final class ObservationsExplorationEvolutionTest extends TestCase
     {
         $taxon = Taxon::create([
             'scientific_name' => 'Tichodroma muraria',
-            'vernacular_name' => 'Tichodrome échelette',
+            'preferred_french_name' => 'Tichodrome échelette',
             'rank' => 'species',
         ]);
         $observation = Observation::create([
@@ -255,7 +255,7 @@ final class ObservationsExplorationEvolutionTest extends TestCase
     {
         $taxon = Taxon::create([
             'scientific_name' => 'Tichodroma muraria',
-            'vernacular_name' => 'Tichodrome échelette',
+            'preferred_french_name' => 'Tichodrome échelette',
             'rank' => 'species',
         ]);
         TaxonSourceMapping::create([

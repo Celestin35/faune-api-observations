@@ -138,7 +138,7 @@ onBeforeUnmount(() => {
             <tr v-for="item in observations" :key="item.id">
               <td>
                 <NuxtLink class="observation-link" :to="`/observations/${item.id}?returnTo=${encodeURIComponent(returnTo)}`">
-                  {{ item.taxon?.frenchName || item.taxon?.scientificName || `Observation #${item.id}` }}
+                  {{ item.taxon?.frenchName || 'Nom français non renseigné' }}
                 </NuxtLink>
                 <small v-if="item.taxon?.scientificName" class="scientific-row"><em>{{ item.taxon.scientificName }}</em></small>
               </td>

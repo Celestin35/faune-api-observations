@@ -14,6 +14,7 @@ final class ObservationDetailResource extends JsonResource
             ->sortByDesc('depth')
             ->map(fn ($path): array => [
                 'id' => $path->ancestor?->id,
+                'frenchName' => $path->ancestor?->frenchName(),
                 'scientificName' => $path->ancestor?->accepted_scientific_name ?: $path->ancestor?->scientific_name,
                 'rank' => $path->ancestor?->rank_code ?: $path->ancestor?->rank,
             ])->values()->all() ?? [];
@@ -22,7 +23,7 @@ final class ObservationDetailResource extends JsonResource
             'id' => $this->id,
             'taxon' => $this->taxon === null ? null : [
                 'id' => $this->taxon->id,
-                'frenchName' => $this->taxon->preferred_french_name ?: $this->taxon->vernacular_name,
+                'frenchName' => $this->taxon->frenchName(),
                 'scientificName' => $this->taxon->accepted_scientific_name ?: $this->taxon->scientific_name,
                 'rank' => $this->taxon->rankDefinition?->label_fr ?: ($this->taxon->rank_code ?: $this->taxon->rank),
                 'lineage' => $lineage,
