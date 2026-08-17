@@ -14,6 +14,17 @@ Après la première installation, le backend de développement se lance avec :
 ./dev
 ```
 
+Cette commande démarre PostgreSQL, Laravel, deux workers de queue en parallèle, le scheduler et le
+worker Faune-France local. Le worker reste actif en arrière-plan et empêche les
+imports Faune-France de rester indéfiniment en `pending`.
+
+```bash
+./dev status       # état des conteneurs et du worker Faune-France
+./dev logs         # logs systemd du worker Faune-France
+./dev stop         # arrêt propre du worker et du backend
+npm --prefix front run dev
+```
+
 ```bash
 cp .env.example .env
 # Renseigner APP_KEY, FAUNE_FRANCE_TOKEN et FAUNE_FRANCE_BOT_TOKEN dans .env
@@ -78,7 +89,8 @@ php artisan biodiversity:count --source=gbif --taxon="Tichodroma muraria" --from
 1. Ouvrir `/exploration`, saisir `Tichodroma muraria` et choisir le résultat.
 2. Choisir une période, un point/rayon ou plusieurs des 101 départements, puis GBIF/iNaturalist.
 3. Cliquer sur **Estimer**. Les totaux local, GBIF, iNaturalist et l’approximation du recouvrement s’affichent.
-4. Confirmer le petit import. Suivre sa progression dans `/imports`, puis ouvrir `/carte`.
+4. Confirmer le petit import. Suivre sa progression dans `/imports`, puis ouvrir la recherche enregistrée dans `/recherches` pour consulter sa liste et sa carte.
+   Chaque popup propose ensuite « Voir le détail de l’observation ».
 5. Dans `/surveillances/nouvelle`, créer une règle. La synchronisation manuelle est disponible sur `/surveillances`; le scheduler traite ensuite les échéances.
 
 Créer d’abord une collection permanente par API si les résultats doivent survivre au nettoyage :
@@ -93,7 +105,7 @@ curl -X POST http://localhost:8000/api/collections -H 'Content-Type: application
 
 ## Entrée et worker Faune-France
 
-Il n’existe aucune connexion sortante vers Faune-France. Un outil externe authentifié peut envoyer un objet ou un tableau. L’identifiant source rend l’opération idempotente.
+Un outil externe authentifié peut envoyer directement un objet ou un tableau. L’identifiant source rend l’opération idempotente.
 
 ```bash
 curl -X POST http://localhost:8000/api/biodiversity/faune-france/occurrences \
@@ -115,7 +127,9 @@ npm run worker
 
 `FAUNE_FRANCE_BOT_TOKEN` doit avoir exactement la même valeur dans le `.env` Laravel et dans `bot/.env`. Les commandes de connexion manuelle et de recherche ponctuelle restent décrites dans [bot/README.md](bot/README.md).
 
-Une surveillance par départements peut aussi sélectionner Faune-France lorsque tous les départements choisis utilisent le portail métropolitain `faune_france` et que le taxon possède un identifiant Faune-France. Les départements ultramarins restent utilisables avec GBIF et iNaturalist, mais leurs portails Faune dédiés ne disposent pas encore de connecteur Playwright.
+L’exploration et les surveillances peuvent sélectionner Faune-France lorsque le taxon est une espèce exacte possédant un mapping validé. La zone peut être un point/rayon métropolitain ou des départements utilisant tous le portail métropolitain `faune_france`. Dans l’exploration, l’estimation Faune-France est signalée comme indisponible et l’import reste possible ; son avancement est ensuite visible dans `/imports`.
+
+Les départements ultramarins restent utilisables avec GBIF et iNaturalist, mais leurs portails Faune dédiés ne disposent pas encore de connecteur Playwright.
 
 ## Exploitation
 
@@ -135,4 +149,5 @@ Les imports sont plafonnés par défaut à 10 000 lignes par source. GBIF est pa
 - [Base de données](docs/database.md)
 - [Processus d’import](docs/import-process.md)
 - [Déduplication](docs/deduplication.md)
+- [Exploration et observations : implémentation](docs/observations-exploration-implementation.md)
 - [Audit initial des API](docs/api-audit.md)

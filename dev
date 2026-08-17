@@ -55,7 +55,7 @@ stop_worker() {
 case "${1:-start}" in
     start)
         cd "$PROJECT_DIR"
-        docker compose up -d postgres app queue scheduler
+        docker compose up -d --scale queue=2 postgres app queue scheduler
         start_worker
         docker compose ps
         ;;

@@ -28,7 +28,8 @@ services:
       APP_KEY: ${APP_KEY:-base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=}
       DB_HOST: postgres
       QUEUE_CONNECTION: database
-    command: ["php", "artisan", "queue:work", "--sleep=2", "--tries=2", "--timeout=900"]
+    command: ["php", "-d", "memory_limit=256M", "artisan", "queue:work", "--sleep=2", "--tries=2", "--timeout=900"]
+    restart: unless-stopped
     volumes:
       - .:/app
       - vendor:/app/vendor
