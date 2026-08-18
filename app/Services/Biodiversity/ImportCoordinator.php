@@ -36,7 +36,7 @@ final class ImportCoordinator
                         $monitoringRuleId,
                         null,
                         'En attente du bot Faune-France · '.$filter['label'].'.',
-                        trim(($definition->taxonLabel() ?? 'Tous les animaux').' — '.$filter['label']),
+                        $this->fauneFranceTaxonLabel($definition, $filter),
                     );
                     $this->createFauneFranceJob($job, $definition, $execution, $filter);
                     $jobs[] = $job;
@@ -119,6 +119,16 @@ final class ImportCoordinator
             'label' => $group['label'],
             'mappingId' => null,
         ], $this->fauneFranceGroups->forTaxon($definition->taxon));
+    }
+
+    private function fauneFranceTaxonLabel(SearchDefinition $definition, array $filter): string
+    {
+        $taxonLabel = trim($definition->taxonLabel() ?? 'Tous les animaux');
+        $filterLabel = trim((string) $filter['label']);
+
+        return mb_strtolower($taxonLabel) === mb_strtolower($filterLabel)
+            ? $taxonLabel
+            : $taxonLabel.' — '.$filterLabel;
     }
 
     private function createFauneFranceJob(

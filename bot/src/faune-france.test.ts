@@ -9,7 +9,8 @@ import {
   decidePagination,
   fingerprintPageData,
   looksLikeLoginResponse,
-  parseDataIsFinished
+  parseDataIsFinished,
+  parseResultsResponse
 } from "./faune-france.js";
 
 test("le masque des départements suit le format de l’extension", () => {
@@ -176,4 +177,14 @@ test("le contrôle distant détecte une session expirée malgré une page locale
     evaluate: async () => ({ status: 200, authenticated: false })
   } as unknown as Page;
   await assert.rejects(assertLiveAuthenticatedSession(simulatedPage, "Résultats page 1"), /Session Faune-France expirée/);
+});
+
+test("une réponse vide est signalée comme un délai Faune-France et non comme une session expirée", () => {
+  assert.throws(() => parseResultsResponse({
+    status: 200,
+    url: "https://www.faune-france.org/index.php?m_id=1351",
+    redirected: false,
+    contentType: "text/plain",
+    body: ""
+  }, 1), /n’a pas répondu à temps/);
 });

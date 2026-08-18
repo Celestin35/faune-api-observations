@@ -182,9 +182,11 @@ final class ExternalFetchJobController
             'progress_stage' => 'finished',
             'progress_current' => $import->processed_count,
             'progress_total' => $status === 'completed' ? $import->processed_count : null,
-            'progress_message' => $status === 'partial'
-                ? 'Limite de sécurité atteinte : des résultats supplémentaires peuvent exister.'
-                : 'Import terminé.',
+            'progress_message' => match ($status) {
+                'partial' => 'Limite de sécurité atteinte : des résultats supplémentaires peuvent exister.',
+                'failed' => 'L’import a échoué.',
+                default => 'Import terminé.',
+            },
             'error_message' => $error,
             'finished_at' => now(),
         ]);

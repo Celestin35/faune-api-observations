@@ -290,8 +290,11 @@ export async function pageShowsAuthenticatedSession(page: Page): Promise<boolean
 export function parseResultsResponse(response: RawNetworkResponse, pageNumber: number): Record<string, unknown> & { data: unknown[] } {
   assertSuccessfulResponse(response, `Résultats page ${pageNumber}`);
   const text = response.body.trim();
-  if (!text || text.startsWith("<")) {
-    throw new Error(`Résultats page ${pageNumber} : Faune-France n’a pas renvoyé de JSON. Vérifiez la session avec « npm run login ».`);
+  if (!text) {
+    throw new Error(`Résultats page ${pageNumber} : Faune-France n’a pas répondu à temps. Réessayez plus tard.`);
+  }
+  if (text.startsWith("<")) {
+    throw new Error(`Résultats page ${pageNumber} : Faune-France a renvoyé une réponse inattendue malgré une session valide.`);
   }
 
   let payload: unknown;

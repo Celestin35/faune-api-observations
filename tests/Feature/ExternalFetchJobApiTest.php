@@ -242,7 +242,13 @@ final class ExternalFetchJobApiTest extends TestCase
     #[Test]
     public function it_records_a_job_failure(): void
     {
+        $import = ImportJob::create([
+            'source' => 'faune-france', 'date_from' => '2026-01-01', 'date_to' => '2026-08-18',
+            'zone_type' => 'radius', 'zone_data' => ['type' => 'radius'], 'zone_hash' => 'radius',
+            'status' => 'pending', 'limit' => 10000,
+        ]);
         $job = $this->claimedJob();
+        $job->update(['import_job_id' => $import->id]);
 
         $this->bot()->postJson("/api/bot/jobs/{$job->id}/fail", ['errorMessage' => 'Firefox indisponible'])
             ->assertOk()->assertJsonPath('status', 'failed');
@@ -251,6 +257,7 @@ final class ExternalFetchJobApiTest extends TestCase
         self::assertSame(ExternalFetchJob::STATUS_FAILED, $job->status);
         self::assertSame('Firefox indisponible', $job->error_message);
         self::assertNotNull($job->failed_at);
+        self::assertSame('L’import a échoué.', $import->fresh()->progress_message);
     }
 
     private function bot()

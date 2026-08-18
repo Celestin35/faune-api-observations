@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { SessionExpiredError } from "./faune-france.js";
-import { runWithAuthenticationRetry } from "./search-runner.js";
+import { runWithAuthenticationRetry, splitDateRange } from "./search-runner.js";
+
+test("une longue recherche est découpée en périodes de 31 jours sans trou ni chevauchement", () => {
+  assert.deepEqual(splitDateRange("2026-01-01", "2026-03-05"), [
+    { dateFrom: "2026-01-01", dateTo: "2026-01-31" },
+    { dateFrom: "2026-02-01", dateTo: "2026-03-03" },
+    { dateFrom: "2026-03-04", dateTo: "2026-03-05" }
+  ]);
+  assert.deepEqual(splitDateRange("2026-08-18", "2026-08-18"), [
+    { dateFrom: "2026-08-18", dateTo: "2026-08-18" }
+  ]);
+});
 
 for (const step of ["Initialisation m_id=94", "Résultats page 2"]) {
   test(`une expiration pendant ${step} reconnecte puis reprend depuis le début`, async () => {

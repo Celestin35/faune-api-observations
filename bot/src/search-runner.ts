@@ -57,6 +57,36 @@ interface SearchAttemptResult {
   stopReason: string | null;
 }
 
+export interface SearchDateChunk {
+  dateFrom: string;
+  dateTo: string;
+}
+
+const MAX_SEARCH_DAYS = 31;
+
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+export function splitDateRange(dateFrom: string, dateTo: string, maxDays = MAX_SEARCH_DAYS): SearchDateChunk[] {
+  if (!Number.isInteger(maxDays) || maxDays < 1) {
+    throw new Error("La durée maximale d’une période doit être un entier positif.");
+  }
+
+  const chunks: SearchDateChunk[] = [];
+  const lastDate = new Date(`${dateTo}T00:00:00Z`);
+  let cursor = new Date(`${dateFrom}T00:00:00Z`);
+  while (cursor <= lastDate) {
+    const end = new Date(cursor);
+    end.setUTCDate(end.getUTCDate() + maxDays - 1);
+    if (end > lastDate) end.setTime(lastDate.getTime());
+    chunks.push({ dateFrom: isoDate(cursor), dateTo: isoDate(end) });
+    cursor = new Date(end);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return chunks;
+}
+
 export async function runWithAuthenticationRetry<T>(
   ensureAuthenticated: () => Promise<void>,
   executeSearch: () => Promise<T>
@@ -161,11 +191,44 @@ export async function runSearchJob(
   try {
     const page = context.pages()[0] ?? await context.newPage();
     const authenticator = new FauneFranceAuthenticator();
-    const attempt = await runWithAuthenticationRetry(
-      () => authenticator.ensureAuthenticated(page),
-      () => performSearchAttempt(page, job, reportProgress, persistArtifacts ? runDirectory : undefined)
-    );
-    const { initialization, combinedData, pages, truncatedBySafetyLimit, stopReason } = attempt;
+    const dateChunks = splitDateRange(job.dateFrom, job.dateTo);
+    const attempts: SearchAttemptResult[] = [];
+    const combinedData: unknown[] = [];
+    let completedPages = 0;
+
+    for (const [index, dateChunk] of dateChunks.entries()) {
+      if (dateChunks.length > 1) {
+        console.log(`Période ${index + 1}/${dateChunks.length} : ${dateChunk.dateFrom} → ${dateChunk.dateTo}.`);
+      }
+      const artifactDirectory = persistArtifacts
+        ? (dateChunks.length === 1 ? runDirectory : path.join(runDirectory, `periode-${index + 1}`))
+        : undefined;
+      if (artifactDirectory && dateChunks.length > 1) await mkdir(artifactDirectory, { recursive: false });
+
+      const attempt = await runWithAuthenticationRetry(
+        () => authenticator.ensureAuthenticated(page),
+        () => performSearchAttempt(
+          page,
+          { ...job, ...dateChunk },
+          reportProgress
+            ? (progress) => reportProgress({
+                page: completedPages + progress.page,
+                maxPages: job.maxPages * dateChunks.length,
+                entries: combinedData.length + progress.entries
+              })
+            : undefined,
+          artifactDirectory
+        )
+      );
+      attempts.push(attempt);
+      combinedData.push(...attempt.combinedData);
+      completedPages += attempt.pages.length;
+    }
+
+    const initialization = attempts[0].initialization;
+    const pages = attempts.flatMap((attempt) => attempt.pages);
+    const truncatedBySafetyLimit = attempts.some((attempt) => attempt.truncatedBySafetyLimit);
+    const stopReason = truncatedBySafetyLimit ? "safety-limit" : attempts.at(-1)?.stopReason ?? null;
 
     const combinedPath = path.join(runDirectory, "combined-data.json");
     if (persistArtifacts) {
@@ -180,6 +243,7 @@ export async function runSearchJob(
       filters: {
         dateFrom: job.dateFrom,
         dateTo: job.dateTo,
+        dateChunks,
         ...(job.zone ? { zone: job.zone } : { departments: job.departments }),
         maxPages: job.maxPages,
         pagePauseMs: job.pagePauseMs

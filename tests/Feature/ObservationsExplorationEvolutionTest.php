@@ -138,6 +138,7 @@ final class ObservationsExplorationEvolutionTest extends TestCase
         self::assertSame('383', $external->payload['filter']['fauneFranceId']);
         self::assertSame('radius', $external->payload['zone']['type']);
         self::assertSame($import->id, $external->import_job_id);
+        self::assertSame('Tichodrome échelette', $import->taxon_label_snapshot);
 
         $this->patchJson("/api/imports/{$import->id}/cancel")->assertOk()
             ->assertJsonPath('data.status', 'cancelled');
