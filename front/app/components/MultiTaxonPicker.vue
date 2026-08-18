@@ -47,8 +47,8 @@ function label(selection: TaxonSelection): string {
         <label>
           Portée
           <select v-model="selection.scope">
-            <option value="exact">Taxon exact</option>
-            <option value="subtree">Taxon et descendants</option>
+            <option value="exact">{{ taxonScopeLabel(selection.taxon, 'exact') }}</option>
+            <option value="subtree">{{ taxonScopeLabel(selection.taxon, 'subtree') }}</option>
           </select>
         </label>
         <button type="button" class="secondary" @click="remove(selection.taxon.id)">Retirer</button>

@@ -73,7 +73,7 @@ function choose(taxon: TaxonResult) {
     >
     <small v-if="loading">Recherche locale…</small>
     <small v-else-if="selected" class="field-confirmation">
-      {{ selected.rank.label || selected.rank.code }} · {{ selected.defaultScope === 'subtree' ? 'descendants inclus' : 'taxon exact' }}
+      {{ taxonScopeLabel(selected, selected.defaultScope) }}
     </small>
     <small v-else-if="query.trim()" class="muted">Sélectionnez un résultat dans la liste.</small>
     <small v-if="error" class="error">{{ error }}</small>

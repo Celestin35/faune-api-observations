@@ -7,6 +7,8 @@ const today = new Date().toISOString().slice(0, 10)
 const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
 const selectedTaxon = ref<TaxonResult | null>(null)
 const taxonScope = ref<'exact' | 'subtree'>('subtree')
+const exactScopeLabel = computed(() => selectedTaxon.value ? taxonScopeLabel(selectedTaxon.value, 'exact') : 'Sélectionnez d’abord un taxon')
+const subtreeScopeLabel = computed(() => selectedTaxon.value ? taxonScopeLabel(selectedTaxon.value, 'subtree') : 'Sélectionnez d’abord un taxon')
 const dates = reactive<DateRange>({ dateFrom: monthAgo, dateTo: today })
 const zone = reactive<QueryZone>({
   mode: 'address',
@@ -148,9 +150,9 @@ try {
         </label>
         <label>
           Portée taxonomique
-          <select v-model="taxonScope">
-            <option value="exact">Taxon exact</option>
-            <option value="subtree">Taxon et descendants</option>
+          <select v-model="taxonScope" :disabled="!selectedTaxon">
+            <option value="exact">{{ exactScopeLabel }}</option>
+            <option value="subtree">{{ subtreeScopeLabel }}</option>
           </select>
         </label>
         <DateRangePicker v-model="dates" />
