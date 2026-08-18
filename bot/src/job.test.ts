@@ -24,7 +24,14 @@ test("une tâche valide est acceptée sans modifier son taxon", () => {
   assert.equal(job.jobId, "test-001");
   assert.equal(job.filter.mode, "species");
   assert.equal(job.filter.mode === "species" ? job.filter.fauneFranceId : null, "383");
+  assert.equal(job.importLimit, 10_000);
   assert.deepEqual(job.departments, ["09"]);
+});
+
+test("une tâche accepte une absence de pause entre les pages", () => {
+  const input = validJob();
+  input.pagePauseMs = 0;
+  assert.equal(validateSearchJob(input).pagePauseMs, 0);
 });
 
 test("une tâche point et rayon métropolitaine est acceptée", () => {

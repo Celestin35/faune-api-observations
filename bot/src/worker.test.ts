@@ -19,6 +19,7 @@ function job(): SearchJob {
     },
     dateFrom: "2026-06-22",
     dateTo: "2026-07-22",
+    importLimit: 10_000,
     departments: ["09"],
     maxPages: 100,
     pagePauseMs: 1500

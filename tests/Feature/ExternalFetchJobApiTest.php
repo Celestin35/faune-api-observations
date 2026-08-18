@@ -40,6 +40,7 @@ final class ExternalFetchJobApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('job.jobId', (string) $job->id)
             ->assertJsonPath('job.taxon.fauneFranceId', '383')
+            ->assertJsonPath('job.importLimit', 10000)
             ->assertJsonPath('job.departments.0', '09');
     }
 
@@ -110,6 +111,7 @@ final class ExternalFetchJobApiTest extends TestCase
                 'filter' => ['mode' => 'group', 'taxonomicGroupId' => 1, 'label' => 'Oiseaux'],
                 'dateFrom' => '2026-06-22',
                 'dateTo' => '2026-07-22',
+                'importLimit' => 10000,
                 'departments' => ['09'],
                 'maxPages' => 100,
                 'pagePauseMs' => 1500,
@@ -279,6 +281,7 @@ final class ExternalFetchJobApiTest extends TestCase
                 ],
                 'dateFrom' => '2026-06-22',
                 'dateTo' => '2026-07-22',
+                'importLimit' => 10000,
                 'departments' => ['09'],
                 'maxPages' => 100,
                 'pagePauseMs' => 1500,

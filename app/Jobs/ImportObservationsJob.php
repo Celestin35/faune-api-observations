@@ -147,7 +147,7 @@ final class ImportObservationsJob implements ShouldQueue
             if ($remaining <= 0) {
                 break;
             }
-            $pageSize = max(10, min(100, (int) config('biodiversity.inaturalist_import_page_size', 50)));
+            $pageSize = max(10, min(200, (int) config('biodiversity.inaturalist_import_page_size', 200)));
             $requested = min($pageSize, $remaining);
             $result = $connector->fetchPage($query, $requested, $idAbove);
             if ($estimated === 0) {

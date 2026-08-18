@@ -91,8 +91,8 @@ export function validateConfig(value: unknown): SearchConfig {
   buildDepartmentMask(departments);
 
   const pagePauseMs = input.pagePauseMs === undefined ? 1500 : Number(input.pagePauseMs);
-  if (!Number.isInteger(pagePauseMs) || pagePauseMs < 500 || pagePauseMs > 60_000) {
-    throw new Error("pagePauseMs doit être un entier compris entre 500 et 60000.");
+  if (!Number.isInteger(pagePauseMs) || pagePauseMs < 0 || pagePauseMs > 60_000) {
+    throw new Error("pagePauseMs doit être un entier compris entre 0 et 60000.");
   }
 
   const maxPages = input.maxPages === undefined ? 100 : Number(input.maxPages);

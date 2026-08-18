@@ -38,7 +38,7 @@ Faune-France ne fournit pas d’estimation légère. L’API renvoie donc :
 }
 ```
 
-L’import reste confirmable. Le total devient connu à la fin de la pagination.
+L’import reste confirmable. La progression indique le nombre de résultats récupérés sur le plafond global. Le worker utilise les requêtes JSON `GET` du portail, charge trois pages au maximum en parallèle et n’ajoute aucune pause artificielle. Une période longue n’est découpée en blocs de 31 jours qu’en repli après un délai Faune-France ; les recherches qui répondent normalement restent exécutées en un seul bloc.
 
 ### États et compteurs
 

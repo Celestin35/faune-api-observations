@@ -16,6 +16,7 @@ async function main(): Promise<void> {
     },
     dateFrom: config.dateFrom,
     dateTo: config.dateTo,
+    importLimit: 10_000,
     departments: config.departments,
     maxPages: config.maxPages,
     pagePauseMs: config.pagePauseMs

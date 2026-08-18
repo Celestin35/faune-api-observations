@@ -44,6 +44,13 @@ export class SessionExpiredError extends Error {
   }
 }
 
+export class FauneFranceResultsTimeoutError extends Error {
+  constructor(pageNumber: number) {
+    super(`Résultats page ${pageNumber} : Faune-France n’a pas répondu à temps.`);
+    this.name = "FauneFranceResultsTimeoutError";
+  }
+}
+
 export function buildRadiusPolygonWkt(latitude: number, longitude: number, radiusKm: number, vertexCount = 64): string {
   if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
       !Number.isFinite(longitude) || longitude < -180 || longitude > 180 ||
@@ -148,6 +155,37 @@ export async function postFromPage(
     headers: expectsJson ? JSON_HEADERS : HTML_HEADERS,
     timeoutMs: REQUEST_TIMEOUT_MS
   });
+}
+
+export function buildResultsUrl(parameters: URLSearchParams): string {
+  const url = new URL(RESULTS_URL);
+  for (const [name, value] of parameters) url.searchParams.set(name, value);
+  return url.toString();
+}
+
+export async function getFromPage(page: Page, parameters: URLSearchParams): Promise<RawNetworkResponse> {
+  return page.evaluate(async ({ requestUrl, headers, timeoutMs }) => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await window.fetch(requestUrl, {
+        method: "GET",
+        credentials: "include",
+        headers,
+        redirect: "follow",
+        signal: controller.signal
+      });
+      return {
+        status: response.status,
+        url: response.url,
+        redirected: response.redirected,
+        contentType: response.headers.get("content-type") || "",
+        body: await response.text()
+      };
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }, { requestUrl: buildResultsUrl(parameters), headers: JSON_HEADERS, timeoutMs: REQUEST_TIMEOUT_MS });
 }
 
 export function looksLikeLoginResponse(response: RawNetworkResponse): boolean {
@@ -291,7 +329,7 @@ export function parseResultsResponse(response: RawNetworkResponse, pageNumber: n
   assertSuccessfulResponse(response, `Résultats page ${pageNumber}`);
   const text = response.body.trim();
   if (!text) {
-    throw new Error(`Résultats page ${pageNumber} : Faune-France n’a pas répondu à temps. Réessayez plus tard.`);
+    throw new FauneFranceResultsTimeoutError(pageNumber);
   }
   if (text.startsWith("<")) {
     throw new Error(`Résultats page ${pageNumber} : Faune-France a renvoyé une réponse inattendue malgré une session valide.`);

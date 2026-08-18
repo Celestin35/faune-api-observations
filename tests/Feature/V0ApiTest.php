@@ -295,17 +295,17 @@ final class V0ApiTest extends TestCase
     public function inaturalist_uses_memory_safe_pages_and_persists_progress(): void
     {
         $taxon = Taxon::create(['scientific_name' => 'Tichodroma muraria', 'rank' => 'species']);
-        $job = $this->importRecord($taxon, 'inaturalist', 50);
+        $job = $this->importRecord($taxon, 'inaturalist', 200);
         Http::fake(['api.inaturalist.org/*' => Http::response([
-            'total_results' => 50,
-            'results' => array_map(fn (int $id): array => $this->inatRecord($id), range(1, 50)),
+            'total_results' => 200,
+            'results' => array_map(fn (int $id): array => $this->inatRecord($id), range(1, 200)),
         ])]);
 
         app()->call([new ImportObservationsJob($job->id), 'handle']);
 
-        Http::assertSent(fn (Request $request): bool => (int) $request['per_page'] === 50);
-        self::assertSame(50, $job->fresh()->progress_current);
-        self::assertSame(50, $job->fresh()->progress_total);
+        Http::assertSent(fn (Request $request): bool => (int) $request['per_page'] === 200);
+        self::assertSame(200, $job->fresh()->progress_current);
+        self::assertSame(200, $job->fresh()->progress_total);
         self::assertSame('finished', $job->fresh()->progress_stage);
     }
 

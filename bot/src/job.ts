@@ -24,6 +24,7 @@ interface SearchJobBase {
   filter: SearchFilter;
   dateFrom: string;
   dateTo: string;
+  importLimit: number;
   maxPages: number;
   pagePauseMs: number;
 }
@@ -41,7 +42,7 @@ export type SearchJob = SearchJobBase & (
   | { departments?: never; zone: RadiusSearchZone }
 );
 
-const ROOT_KEYS = ["jobId", "filter", "taxon", "dateFrom", "dateTo", "departments", "zone", "maxPages", "pagePauseMs"] as const;
+const ROOT_KEYS = ["jobId", "filter", "taxon", "dateFrom", "dateTo", "departments", "zone", "importLimit", "maxPages", "pagePauseMs"] as const;
 const REQUIRED_ROOT_KEYS = ["jobId", "dateFrom", "dateTo", "maxPages", "pagePauseMs"] as const;
 const TAXON_KEYS = ["fauneFranceId", "scientificName", "vernacularName", "rank"] as const;
 const SPECIES_FILTER_KEYS = ["mode", "taxonomicGroupId", "fauneFranceId", "scientificName", "vernacularName", "label"] as const;
@@ -160,6 +161,10 @@ export function validateSearchJob(value: unknown): SearchJob {
   if (typeof input.maxPages !== "number" || !Number.isInteger(input.maxPages)) {
     throw new Error("maxPages doit être un entier JSON.");
   }
+  const importLimit = input.importLimit === undefined ? 10_000 : input.importLimit;
+  if (typeof importLimit !== "number" || !Number.isInteger(importLimit) || importLimit < 1 || importLimit > 100_000) {
+    throw new Error("importLimit doit être un entier compris entre 1 et 100000.");
+  }
   if (typeof input.pagePauseMs !== "number" || !Number.isInteger(input.pagePauseMs)) {
     throw new Error("pagePauseMs doit être un entier JSON.");
   }
@@ -167,8 +172,8 @@ export function validateSearchJob(value: unknown): SearchJob {
   if (input.maxPages < 1 || input.maxPages > 1000) {
     throw new Error("maxPages doit être un entier compris entre 1 et 1000.");
   }
-  if (input.pagePauseMs < 500 || input.pagePauseMs > 60_000) {
-    throw new Error("pagePauseMs doit être un entier compris entre 500 et 60000.");
+  if (input.pagePauseMs < 0 || input.pagePauseMs > 60_000) {
+    throw new Error("pagePauseMs doit être un entier compris entre 0 et 60000.");
   }
 
   const hasDepartments = Object.hasOwn(input, "departments");
@@ -182,6 +187,7 @@ export function validateSearchJob(value: unknown): SearchJob {
     filter,
     dateFrom: input.dateFrom,
     dateTo: input.dateTo,
+    importLimit,
     maxPages: input.maxPages,
     pagePauseMs: input.pagePauseMs
   };

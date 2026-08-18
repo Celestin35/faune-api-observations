@@ -141,7 +141,7 @@ php artisan queue:failed
 php artisan schedule:list
 ```
 
-Les imports sont plafonnés par défaut à 10 000 lignes par source. GBIF est paginé par 300 sans dépasser sa fenêtre d’offset de 100 000; iNaturalist par 200 avec `id_above` et une pause d’une seconde. OBIS demeure dans l’audit mais est désactivé par défaut et absent du flux d’import V0.
+Les imports sont plafonnés par défaut à 10 000 lignes par source. GBIF est paginé par 300 sans dépasser sa fenêtre d’offset de 100 000 ; iNaturalist par 200 avec `id_above`, sans pause ajoutée au délai commun entre appels. Faune-France utilise ses pages JSON natives, jusqu’à trois en parallèle, avec un plafond global commun à toute la période. OBIS demeure dans l’audit mais est désactivé par défaut et absent du flux d’import V0.
 
 ## Documentation
 

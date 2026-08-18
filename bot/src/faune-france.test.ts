@@ -4,6 +4,7 @@ import type { Page } from "playwright";
 import { buildDepartmentMask, validateConfig } from "./config.js";
 import {
   buildSearchParameters,
+  buildResultsUrl,
   buildRadiusPolygonWkt,
   assertLiveAuthenticatedSession,
   decidePagination,
@@ -57,6 +58,8 @@ test("les paramètres utilisent le taxon fourni et le numéro de page", () => {
   assert.equal(parameters.get("sp_DTo"), "22.07.2026");
   assert.equal(parameters.get("mp_current_page"), "2");
   assert.equal(parameters.get("sp_cC")?.length, 100);
+  assert.match(buildResultsUrl(parameters), /m_id=1351/);
+  assert.match(buildResultsUrl(parameters), /mp_current_page=2/);
 });
 
 test("un point et un rayon utilisent le polygone WKT natif de Faune-France", () => {

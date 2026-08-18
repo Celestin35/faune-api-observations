@@ -161,6 +161,7 @@ final class ImportCoordinator
                 'dateFrom' => $definition->dateFrom,
                 'dateTo' => $definition->dateTo,
                 ...$spatialPayload,
+                'importLimit' => $execution->importLimit,
                 'maxPages' => $execution->maxPages,
                 'pagePauseMs' => $execution->pagePauseMs,
             ],

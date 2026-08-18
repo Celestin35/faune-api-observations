@@ -7,9 +7,10 @@ import {
   assertSuccessfulResponse,
   buildSearchParameters,
   decidePagination,
+  FauneFranceResultsTimeoutError,
+  getFromPage,
   parseResultsResponse,
   postFromPage,
-  RESULTS_URL,
   SEARCH_URL,
   SessionExpiredError
 } from "./faune-france.js";
@@ -63,6 +64,7 @@ export interface SearchDateChunk {
 }
 
 const MAX_SEARCH_DAYS = 31;
+const PAGE_CONCURRENCY = 3;
 
 function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -87,6 +89,23 @@ export function splitDateRange(dateFrom: string, dateTo: string, maxDays = MAX_S
   return chunks;
 }
 
+export function applyImportLimit(
+  data: unknown[],
+  alreadyCollected: number,
+  importLimit: number,
+  sourceHasMore: boolean
+): { accepted: unknown[]; shouldStop: boolean; truncated: boolean } {
+  const remaining = Math.max(0, importLimit - alreadyCollected);
+  const accepted = data.slice(0, remaining);
+  const shouldStop = alreadyCollected + accepted.length >= importLimit;
+
+  return {
+    accepted,
+    shouldStop,
+    truncated: shouldStop && (accepted.length < data.length || sourceHasMore),
+  };
+}
+
 export async function runWithAuthenticationRetry<T>(
   ensureAuthenticated: () => Promise<void>,
   executeSearch: () => Promise<T>
@@ -106,6 +125,7 @@ export async function runWithAuthenticationRetry<T>(
 async function performSearchAttempt(
   page: Page,
   job: SearchJob,
+  maxObservations: number,
   reportProgress?: SearchProgressReporter,
   artifactDirectory?: string
 ): Promise<SearchAttemptResult> {
@@ -124,41 +144,73 @@ async function performSearchAttempt(
   let truncatedBySafetyLimit = false;
   let stopReason: string | null = null;
 
-  for (let pageNumber = 1; pageNumber <= job.maxPages; pageNumber += 1) {
+  const fetchPage = async (pageNumber: number) => {
     console.log(`Récupération de la page ${pageNumber}/${job.maxPages} via m_id=1351…`);
-    let response = await postFromPage(page, RESULTS_URL, buildSearchParameters(job, pageNumber), true);
+    let response = await getFromPage(page, buildSearchParameters(job, pageNumber));
     if (response.status === 200 && response.body.trim() === "") {
       console.log(`Page ${pageNumber} encore vide côté Faune-France, nouvelle tentative unique après ${initializationPauseMs} ms…`);
       await pause(initializationPauseMs);
-      response = await postFromPage(page, RESULTS_URL, buildSearchParameters(job, pageNumber), true);
+      response = await getFromPage(page, buildSearchParameters(job, pageNumber));
     }
-    await assertLiveAuthenticatedSession(page, `Résultats page ${pageNumber}`);
-    const payload = parseResultsResponse(response, pageNumber);
-    const decision = decidePagination(payload, pageNumber, job.maxPages, previousFingerprint);
+    if (response.body.trim() === "" || response.body.trim().startsWith("<")) {
+      await assertLiveAuthenticatedSession(page, `Résultats page ${pageNumber}`);
+    }
 
-    if (artifactDirectory) {
-      await writeFile(path.join(artifactDirectory, `page-${pageNumber}.raw.json`), response.body, "utf8");
-    }
-    pages.push({
-      page: pageNumber,
-      entries: payload.data.length,
-      dataIsFinished: decision.dataIsFinished,
-      repeated: decision.repeated
-    });
-    if (!decision.repeated) {
-      combinedData.push(...payload.data);
-    }
-    console.log(`Page ${pageNumber} reçue : ${payload.data.length} entrée(s), data_is_finished=${JSON.stringify(decision.dataIsFinished.value)} (${decision.dataIsFinished.type}).`);
-    await reportProgress?.({ page: pageNumber, maxPages: job.maxPages, entries: combinedData.length });
+    return response;
+  };
 
-    if (!decision.continue) {
-      stopReason = decision.stopReason;
-      truncatedBySafetyLimit = decision.truncatedBySafetyLimit;
-      break;
+  pagesLoop: for (let batchStart = 1; batchStart <= job.maxPages; batchStart += PAGE_CONCURRENCY) {
+    const pageNumbers = Array.from(
+      { length: Math.min(PAGE_CONCURRENCY, job.maxPages - batchStart + 1) },
+      (_, index) => batchStart + index
+    );
+    const responses = await Promise.all(pageNumbers.map(fetchPage));
+
+    for (const [index, pageNumber] of pageNumbers.entries()) {
+      const response = responses[index];
+      const payload = parseResultsResponse(response, pageNumber);
+      const decision = decidePagination(payload, pageNumber, job.maxPages, previousFingerprint);
+      const limitedPage = applyImportLimit(
+        decision.repeated ? [] : payload.data,
+        combinedData.length,
+        maxObservations,
+        !decision.dataIsFinished.finished && payload.data.length > 0
+      );
+      const acceptedData = limitedPage.accepted;
+
+      if (artifactDirectory) {
+        await writeFile(path.join(artifactDirectory, `page-${pageNumber}.raw.json`), response.body, "utf8");
+      }
+      pages.push({
+        page: pageNumber,
+        entries: acceptedData.length,
+        dataIsFinished: decision.dataIsFinished,
+        repeated: decision.repeated
+      });
+      if (!decision.repeated) {
+        combinedData.push(...acceptedData);
+      }
+      console.log(`Page ${pageNumber} reçue : ${acceptedData.length} entrée(s) conservée(s), data_is_finished=${JSON.stringify(decision.dataIsFinished.value)} (${decision.dataIsFinished.type}).`);
+      await reportProgress?.({ page: pageNumber, maxPages: job.maxPages, entries: combinedData.length });
+
+      if (limitedPage.shouldStop && limitedPage.truncated) {
+        stopReason = "import-limit";
+        truncatedBySafetyLimit = true;
+        break pagesLoop;
+      }
+
+      if (!decision.continue) {
+        stopReason = decision.stopReason;
+        truncatedBySafetyLimit = decision.truncatedBySafetyLimit;
+        break pagesLoop;
+      }
+      previousFingerprint = decision.fingerprint;
     }
-    previousFingerprint = decision.fingerprint;
-    console.log(`Pause de ${job.pagePauseMs} ms avant la page suivante…`);
-    await pause(job.pagePauseMs);
+
+    if (job.pagePauseMs > 0) {
+      console.log(`Pause de ${job.pagePauseMs} ms avant les pages suivantes…`);
+      await pause(job.pagePauseMs);
+    }
   }
 
   return { initialization, combinedData, pages, truncatedBySafetyLimit, stopReason };
@@ -191,44 +243,68 @@ export async function runSearchJob(
   try {
     const page = context.pages()[0] ?? await context.newPage();
     const authenticator = new FauneFranceAuthenticator();
-    const dateChunks = splitDateRange(job.dateFrom, job.dateTo);
-    const attempts: SearchAttemptResult[] = [];
-    const combinedData: unknown[] = [];
-    let completedPages = 0;
+    let dateChunks: SearchDateChunk[] = [{ dateFrom: job.dateFrom, dateTo: job.dateTo }];
 
-    for (const [index, dateChunk] of dateChunks.entries()) {
-      if (dateChunks.length > 1) {
-        console.log(`Période ${index + 1}/${dateChunks.length} : ${dateChunk.dateFrom} → ${dateChunk.dateTo}.`);
+    const executeChunks = async (chunks: SearchDateChunk[]) => {
+      const attempts: SearchAttemptResult[] = [];
+      const combinedData: unknown[] = [];
+      let completedPages = 0;
+      let stoppedAtImportLimit = false;
+
+      for (const [index, dateChunk] of chunks.entries()) {
+        if (chunks.length > 1) {
+          console.log(`Période de repli ${index + 1}/${chunks.length} : ${dateChunk.dateFrom} → ${dateChunk.dateTo}.`);
+        }
+        const artifactDirectory = persistArtifacts
+          ? (chunks.length === 1 ? runDirectory : path.join(runDirectory, `periode-${index + 1}`))
+          : undefined;
+        if (artifactDirectory && chunks.length > 1) await mkdir(artifactDirectory, { recursive: true });
+
+        const attempt = await runWithAuthenticationRetry(
+          () => authenticator.ensureAuthenticated(page),
+          () => performSearchAttempt(
+            page,
+            { ...job, ...dateChunk },
+            job.importLimit - combinedData.length,
+            reportProgress
+              ? (progress) => reportProgress({
+                  page: completedPages + progress.page,
+                  maxPages: job.maxPages * chunks.length,
+                  entries: combinedData.length + progress.entries
+                })
+              : undefined,
+            artifactDirectory
+          )
+        );
+        attempts.push(attempt);
+        combinedData.push(...attempt.combinedData);
+        completedPages += attempt.pages.length;
+        if (combinedData.length >= job.importLimit) {
+          stoppedAtImportLimit = attempt.truncatedBySafetyLimit || index < chunks.length - 1;
+          break;
+        }
       }
-      const artifactDirectory = persistArtifacts
-        ? (dateChunks.length === 1 ? runDirectory : path.join(runDirectory, `periode-${index + 1}`))
-        : undefined;
-      if (artifactDirectory && dateChunks.length > 1) await mkdir(artifactDirectory, { recursive: false });
 
-      const attempt = await runWithAuthenticationRetry(
-        () => authenticator.ensureAuthenticated(page),
-        () => performSearchAttempt(
-          page,
-          { ...job, ...dateChunk },
-          reportProgress
-            ? (progress) => reportProgress({
-                page: completedPages + progress.page,
-                maxPages: job.maxPages * dateChunks.length,
-                entries: combinedData.length + progress.entries
-              })
-            : undefined,
-          artifactDirectory
-        )
-      );
-      attempts.push(attempt);
-      combinedData.push(...attempt.combinedData);
-      completedPages += attempt.pages.length;
+      return { attempts, combinedData, stoppedAtImportLimit };
+    };
+
+    let execution;
+    try {
+      execution = await executeChunks(dateChunks);
+    } catch (error) {
+      const fallbackChunks = splitDateRange(job.dateFrom, job.dateTo);
+      if (!(error instanceof FauneFranceResultsTimeoutError) || fallbackChunks.length === 1) throw error;
+      console.log(`La recherche complète a dépassé le délai Faune-France ; reprise automatique en ${fallbackChunks.length} périodes.`);
+      dateChunks = fallbackChunks;
+      execution = await executeChunks(dateChunks);
     }
+
+    const { attempts, combinedData, stoppedAtImportLimit } = execution;
 
     const initialization = attempts[0].initialization;
     const pages = attempts.flatMap((attempt) => attempt.pages);
-    const truncatedBySafetyLimit = attempts.some((attempt) => attempt.truncatedBySafetyLimit);
-    const stopReason = truncatedBySafetyLimit ? "safety-limit" : attempts.at(-1)?.stopReason ?? null;
+    const truncatedBySafetyLimit = stoppedAtImportLimit || attempts.some((attempt) => attempt.truncatedBySafetyLimit);
+    const stopReason = stoppedAtImportLimit ? "import-limit" : attempts.at(-1)?.stopReason ?? null;
 
     const combinedPath = path.join(runDirectory, "combined-data.json");
     if (persistArtifacts) {
@@ -244,6 +320,7 @@ export async function runSearchJob(
         dateFrom: job.dateFrom,
         dateTo: job.dateTo,
         dateChunks,
+        importLimit: job.importLimit,
         ...(job.zone ? { zone: job.zone } : { departments: job.departments }),
         maxPages: job.maxPages,
         pagePauseMs: job.pagePauseMs

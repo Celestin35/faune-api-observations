@@ -23,9 +23,9 @@ async function main(): Promise<void> {
         try {
           await api.heartbeat(job.jobId, {
             stage: "fetching",
-            current: progress.page,
-            total: progress.maxPages,
-            message: `${progress.entries} résultat(s) récupéré(s).`
+            current: Math.min(progress.entries, job.importLimit),
+            total: job.importLimit,
+            message: `${progress.entries} / ${job.importLimit} résultat(s) récupéré(s).`
           });
         } catch (error) {
           console.error(`Progression de la tâche ${job.jobId} non transmise : ${error instanceof Error ? error.message : "erreur inconnue"}.`);

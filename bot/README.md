@@ -105,10 +105,12 @@ Cette commande est conservée. Elle utilise encore `bot/config.json` et construi
 Le moteur commun :
 
 1. exécute depuis la page un `POST` vers `m_id=94` pour initialiser les critères ;
-2. exécute depuis la page les `POST` successifs vers `m_id=1351&content=observations_by_page` ;
-3. conserve la pagination actuelle basée sur `data_is_finished`.
+2. utilise ensuite les requêtes `GET` JSON natives du site vers `m_id=1351&content=observations_by_page` ;
+3. charge au plus trois pages en parallèle, les traite dans l’ordre et s’arrête dès le plafond global de l’import ;
+4. conserve la pagination actuelle basée sur `data_is_finished`.
 
 Après `m_id=94`, le bot attend au minimum 1,5 seconde avant la première page. Si Faune-France renvoie malgré tout un corps vide pendant la préparation de la recherche, il attend puis réessaie cette page une seule fois.
+Une longue période est d’abord recherchée d’un seul bloc. Elle n’est découpée en périodes de 31 jours que si le portail dépasse son délai de réponse, ce qui évite huit initialisations inutiles pour les recherches nationales qui fonctionnent directement.
 
 ## 4. Worker Laravel permanent
 
