@@ -8,6 +8,7 @@ type Observation = {
   id: number
   latitude: number
   longitude: number
+  elevationM?: number | null
   observed_at: string | null
   validation_status: string | null
   taxonGroup?: TaxonGroup | null
@@ -85,6 +86,7 @@ const geojson = computed(() => ({
         scientific: observation.taxon?.scientificName || observation.taxon?.scientific_name || '',
         date: observation.observed_at ? new Date(observation.observed_at).toLocaleDateString('fr-FR') : 'Date inconnue',
         sources: observation.sources.map(source => source.source).join(', '),
+        elevation: observation.elevationM == null ? '' : `${Math.round(Number(observation.elevationM))} m`,
         group: groupLabel(observation),
         groupColor: groupColor(groupKey(observation)),
       },
@@ -177,6 +179,7 @@ onMounted(() => {
         document.createElement('br'),
         properties.date ?? '',
         document.createElement('br'),
+        ...(properties.elevation ? [`Altitude : ${properties.elevation}`, document.createElement('br')] : []),
         `Sources : ${properties.sources ?? ''}`,
         document.createElement('br'),
         detailLink,

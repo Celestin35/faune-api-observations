@@ -94,6 +94,9 @@ th, td { padding: .7rem; text-align: left; border-bottom: 1px solid #e2e6e2; ver
 .detail-list dd { margin: 0; overflow-wrap: anywhere; }
 .taxon-lineage { padding-left: 1.25rem; color: #43534a; }
 .observation-sources { margin-top: 1.5rem; }
+.taxonomy-details { margin-top: 1.5rem; }
+.taxonomy-details summary { cursor: pointer; font-weight: 750; font-size: 1.25rem; }
+.taxonomy-details[open] summary { margin-bottom: 1rem; }
 .source-detail h3 { margin: 0; }
 .source-media { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: .6rem; margin-top: 1rem; }
 .source-media img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 7px; }

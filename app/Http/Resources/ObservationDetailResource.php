@@ -35,6 +35,8 @@ final class ObservationDetailResource extends JsonResource
                 'latitude' => $this->latitude,
                 'longitude' => $this->longitude,
                 'uncertaintyM' => $this->coordinate_uncertainty_m,
+                'elevationM' => $this->elevation_m,
+                'elevationSource' => $this->elevation_source,
                 'locality' => $this->locality_name ?: $this->location_name,
                 'municipality' => $this->municipality_name,
                 'municipalityCode' => $this->municipality_code,

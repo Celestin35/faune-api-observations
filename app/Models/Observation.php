@@ -23,6 +23,9 @@ final class Observation extends Model
             'geography_resolved_at' => 'immutable_datetime',
             'latitude' => 'float', 'longitude' => 'float',
             'coordinate_uncertainty_m' => 'float',
+            'elevation_m' => 'float',
+            'elevation_resolved_at' => 'immutable_datetime',
+            'geography_enrichment_attempted_at' => 'immutable_datetime',
         ];
     }
 

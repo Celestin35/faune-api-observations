@@ -21,6 +21,7 @@ final class ObservationMapResource extends JsonResource
             'observed_at' => $this->observed_at?->toIso8601String(),
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
+            'elevationM' => $this->elevation_m,
             'validation_status' => $this->validation_status,
             'taxonGroup' => $this->taxon_map_group,
             'sources' => $this->whenLoaded('sources', fn () => $this->sources->map(fn ($source): array => [

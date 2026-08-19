@@ -4,6 +4,8 @@ type DetailLocation = {
   latitude: number | null
   longitude: number | null
   uncertaintyM: number | null
+  elevationM?: number | null
+  elevationSource?: string | null
   locality?: string | null
   municipality?: string | null
   municipalityCode?: string | null
@@ -134,6 +136,9 @@ useHead(() => ({ title: observation.value ? `${observation.value.taxon?.frenchNa
             <dt>Commune</dt><dd>{{ display(observation.location.municipality) }}</dd>
             <dt>Département</dt><dd>{{ display(observation.location.department) }}<template v-if="observation.location.departmentCode"> — {{ observation.location.departmentCode }}</template></dd>
             <dt>Région</dt><dd>{{ display(observation.location.region) }}</dd>
+            <template v-if="observation.location.elevationM !== null && observation.location.elevationM !== undefined">
+              <dt>Altitude</dt><dd>{{ Math.round(observation.location.elevationM) }} m<template v-if="observation.location.elevationSource"> · {{ observation.location.elevationSource }}</template></dd>
+            </template>
             <template v-if="observation.location.country"><dt>Pays</dt><dd>{{ observation.location.country }}</dd></template>
             <template v-if="observation.location.latitude !== null && observation.location.longitude !== null">
               <dt>Coordonnées publiques</dt><dd>{{ observation.location.latitude }}, {{ observation.location.longitude }}</dd>
@@ -156,21 +161,6 @@ useHead(() => ({ title: observation.value ? `${observation.value.taxon?.frenchNa
           <p v-if="!observation.individualCount && !observation.observerName && !observation.lifeStage && !observation.sex && !observation.behavior && !observation.remarks" class="muted">Aucune information biologique complémentaire.</p>
         </article>
 
-        <article class="card">
-          <h2>Taxonomie</h2>
-          <dl class="detail-list">
-            <dt>Nom français</dt><dd>{{ observation.taxon?.frenchName || 'Non renseigné dans TAXREF' }}</dd>
-            <template v-if="observation.taxon?.scientificName"><dt>Nom scientifique</dt><dd><em>{{ observation.taxon.scientificName }}</em></dd></template>
-            <template v-if="observation.taxon?.rank"><dt>Rang</dt><dd>{{ observation.taxon.rank }}</dd></template>
-          </dl>
-          <ol v-if="observation.taxon?.lineage.length" class="taxon-lineage">
-            <li v-for="ancestor in observation.taxon.lineage" :key="ancestor.id">
-              {{ ancestor.rank ? `${ancestor.rank} — ` : '' }}{{ ancestor.frenchName || 'Nom français non renseigné' }}
-              <template v-if="ancestor.scientificName"> (<em>{{ ancestor.scientificName }}</em>)</template>
-            </li>
-          </ol>
-          <p v-else class="muted">Lignée TAXREF non renseignée.</p>
-        </article>
       </div>
 
       <section class="observation-sources">
@@ -198,6 +188,22 @@ useHead(() => ({ title: observation.value ? `${observation.value.taxon?.frenchNa
           </article>
         </div>
       </section>
+
+      <details class="card taxonomy-details">
+        <summary>Taxonomie détaillée</summary>
+        <dl class="detail-list">
+          <dt>Nom français</dt><dd>{{ observation.taxon?.frenchName || 'Non renseigné dans TAXREF' }}</dd>
+          <template v-if="observation.taxon?.scientificName"><dt>Nom scientifique</dt><dd><em>{{ observation.taxon.scientificName }}</em></dd></template>
+          <template v-if="observation.taxon?.rank"><dt>Rang</dt><dd>{{ observation.taxon.rank }}</dd></template>
+        </dl>
+        <ol v-if="observation.taxon?.lineage.length" class="taxon-lineage">
+          <li v-for="ancestor in observation.taxon.lineage" :key="ancestor.id">
+            {{ ancestor.rank ? `${ancestor.rank} — ` : '' }}{{ ancestor.frenchName || 'Nom français non renseigné' }}
+            <template v-if="ancestor.scientificName"> (<em>{{ ancestor.scientificName }}</em>)</template>
+          </li>
+        </ol>
+        <p v-else class="muted">Lignée TAXREF non renseignée.</p>
+      </details>
     </template>
   </section>
 </template>

@@ -137,11 +137,14 @@ Les départements ultramarins restent utilisables avec GBIF et iNaturalist, mais
 php artisan biodiversity:sync-due-monitoring
 php artisan biodiversity:cleanup --dry-run
 php artisan biodiversity:cleanup
+php artisan biodiversity:enrich-observation-geography --limit=100
 php artisan queue:failed
 php artisan schedule:list
 ```
 
 Les imports sont plafonnés par défaut à 10 000 lignes par source. GBIF est paginé par 300 sans dépasser sa fenêtre d’offset de 100 000 ; iNaturalist par 200 avec `id_above`, sans pause ajoutée au délai commun entre appels. Faune-France utilise ses pages JSON natives, jusqu’à trois en parallèle, avec un plafond global commun à toute la période. OBIS demeure dans l’audit mais est désactivé par défaut et absent du flux d’import V0.
+
+Le scheduler enrichit progressivement les coordonnées publiques exactes avec l’altitude IGN RGE ALTI. Lorsque la source ne les fournit pas, la commune, le département et la région sont aussi déduits du découpage administratif officiel pour les coordonnées exactes ou approximatives. Les coordonnées masquées ne sont jamais envoyées à ces services et aucune altitude n’est calculée pour un point approximatif.
 
 ## Documentation
 
