@@ -3,7 +3,15 @@
 .idea
 .phpunit.cache
 .vscode
+bot
 bootstrap/cache/*.php
 front
+storage/app/backups
+storage/app/taxref/extracted
+storage/app/taxref/reports
+storage/app/taxref/source
+storage/framework/cache
+storage/framework/sessions
+storage/framework/testing
 storage/logs/*.log
 vendor
