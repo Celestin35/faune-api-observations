@@ -1,0 +1,96 @@
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    image: observations-api-app:production
+    environment: &laravel_environment
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY}
+      APP_URL: ${APP_URL}
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: ${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      QUEUE_CONNECTION: database
+      FAUNE_FRANCE_TOKEN: ${FAUNE_FRANCE_TOKEN:-}
+      FAUNE_FRANCE_BOT_TOKEN: ${FAUNE_FRANCE_BOT_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - app_storage:/app/storage
+
+  queue:
+    image: observations-api-app:production
+    environment: *laravel_environment
+    command: ["php", "-d", "memory_limit=256M", "artisan", "queue:work", "--sleep=2", "--tries=2", "--timeout=900"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - app_storage:/app/storage
+
+  scheduler:
+    image: observations-api-app:production
+    environment: *laravel_environment
+    command: ["php", "artisan", "schedule:work"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - app_storage:/app/storage
+
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile.production
+    environment:
+      FAUNE_FRANCE_BOT_TOKEN: ${FAUNE_FRANCE_BOT_TOKEN}
+      FAUNE_FRANCE_EMAIL: ${FAUNE_FRANCE_EMAIL:-}
+      FAUNE_FRANCE_PASSWORD: ${FAUNE_FRANCE_PASSWORD:-}
+      LARAVEL_API_URL: http://app:8000
+      BOT_POLL_INTERVAL_MS: ${BOT_POLL_INTERVAL_MS:-30000}
+    depends_on:
+      - app
+    restart: unless-stopped
+    volumes:
+      - bot_data:/bot/data
+
+  front:
+    build:
+      context: ./front
+      dockerfile: Dockerfile.production
+    environment:
+      NUXT_API_BASE: http://app:8000/api
+      NUXT_PUBLIC_API_BASE: /api
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  app_storage:
+  bot_data:
