@@ -32,6 +32,11 @@ class FakeLocator {
       this.page.state = "valid";
     }
   }
+  async evaluate(): Promise<void> {
+    if (SUBMIT_SELECTORS.includes(this.selector as typeof SUBMIT_SELECTORS[number]) && this.page.acceptCredentials) {
+      this.page.state = "valid";
+    }
+  }
 }
 
 class FakePage {

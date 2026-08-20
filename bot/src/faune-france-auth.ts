@@ -203,7 +203,12 @@ export class FauneFranceAuthenticator {
 
     await Promise.all([
       page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: this.navigationTimeoutMs }).catch(() => null),
-      submit.click()
+      // The portal collapses its login panel after the fields are filled on
+      // some layouts. A DOM click still submits the same control (including
+      // its name/value) without waiting for Playwright's visibility checks.
+      submit.evaluate((element) => {
+        if (element instanceof HTMLElement) element.click();
+      })
     ]);
 
     if (await pageShowsAuthenticatedSession(page)) {
